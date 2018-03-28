@@ -23,7 +23,7 @@ posterior_beta <- prior_beta + f
 theta.means <- c()
 theta.sd <- c()
 theta.n <- c()
-for (n in seq(10, 10000, 100)) {
+for (n in seq(10, 100000, 100)) {
   thetas <- rbeta(n, posterior_alpha, posterior_beta) # Generate Thetas
   theta.means <- append(theta.means, mean(thetas)) # Calculate mean and add to vector
   theta.sd <- append(theta.sd, sd(thetas)) # Calculate standard deviation and add to vector
@@ -44,10 +44,13 @@ plot(theta.n, theta.sd, type='l', xlab='Number of draws', ylab='Standard dev of 
 theta.draws <- rbeta(10000, posterior_alpha, posterior_beta) # Draw 10000 numbers
 theta.no_smaller <- ifelse(theta.draws < 0.4, 1, 0) # If draw < 0.4 -> 1, else -> 0
 theta.prob_smaller <- sum(theta.no_smaller)/length(theta.draws) # Calculate probability of drawn number being < 0.4
+print(theta.prob_smaller)
 print(pbeta(0.4,posterior_alpha, posterior_beta)) # Actual probability of b
 
 # ------------------------------------------------------------------------------------------------- #
 # c) 
 # Compute the posterior distribution of the log-odds φ = log(θ / 1−θ)
 # by simulation (nDraws = 10000). [Hint: hist() and density() might come in handy]
-
+theta.logodds <- log(theta.draws/(1-theta.draws))
+hist(theta.logodds)
+density(theta.logodds)
