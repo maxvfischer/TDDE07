@@ -1,6 +1,6 @@
-#Bernoulli ... again.
-#Let y1, ..., yn|θ ∼ Bern(θ), and assume that you have obtained a sample with s = 14
-#successes in n = 20 trials. Assume a Beta(α0, β0) prior for θ and let α0 = β0 = 2.
+# Bernoulli ... again.
+# Let y1, ..., yn|θ ∼ Bern(θ), and assume that you have obtained a sample with s = 14
+# successes in n = 20 trials. Assume a Beta(α0, β0) prior for θ and let α0 = β0 = 2.
 
 # a)
 # Draw random numbers from the posterior θ|y ∼ Beta(α0 + s, β0 + f), y = (y1, . . . , yn), 
