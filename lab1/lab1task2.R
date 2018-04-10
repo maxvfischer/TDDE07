@@ -22,16 +22,23 @@ nDraws = 10000
 
 draw <- rchisq(n=nDraws, df=n)
 sigma2 <- n*tau2(data, my)/draw
-hist(sigma2)
+hist(sigma2, breaks=100)
 
 # b)
 sigma = sqrt(sigma2)
 G <- 2 * pnorm(sigma/sqrt(2), mean = 0, sd = 1) - 1
-hist(G)
+hist(G, breaks=100)
 
 # c)
-G.sorted <- sort(G)[(nDraws*0.025+1):(nDraws*0.975)]
-G.credible_interval <- c(min(G.sorted), max(G.sorted))
+G.sorted <- sort(G)[(nDraws*0.025+1):(nDraws*0.975)] 
+G.credible_interval <- c(min(G.sorted), max(G.sorted)) # Credible interval 
 print(G.credible_interval)
 
+G.density <- density(G)
+G.density.df <- data.frame(x = G.density$x, y = G.density$y)
 
+G.density.ordered <- G.density.df[with(G.density.df, order(y)),]
+G.density.ordered <- data.frame(x = G.density.ordered$x, y = G.density.ordered$y)
+print(G.density.ordered)
+G.density.ordered.95 = G.density.ordered[(512*0.05+1):512,]
+print(G.density.ordered.95)
