@@ -2,16 +2,6 @@
 # a)
 # Input: y-vector, one kapa value, my
 # Output: vonMises probability of input. Returns a scalar
-
-likelihood2VonMises <- function(y, k, my) {
-  return(
-    prod(
-      exp(k*cos(y-my))/(2*pi*besselI(k, nu=0))
-    )
-  )
-}
-
-# -----
 likelihoodVonMises <- function(y, k, my) {
     return(prod(exp(k*cos(y-my))/(2*pi*besselI(k, nu=0))))
 }
@@ -38,4 +28,3 @@ plot(kapa.values, posterior, type='l') # Plot
 max.posterior = which.max(posterior) # Find maximum posterior value
 kapa.max.posterior = kapa.values[max.posterior] # Find maximum kapa value given max value in posterior
 # Max kapa: 2.12
-
