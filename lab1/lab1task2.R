@@ -30,15 +30,18 @@ G <- 2 * pnorm(sigma/sqrt(2), mean = 0, sd = 1) - 1
 hist(G, breaks=100)
 
 # c)
+# equal tail
 G.sorted <- sort(G)[(nDraws*0.025+1):(nDraws*0.975)] 
 G.credible_interval <- c(min(G.sorted), max(G.sorted)) # Credible interval 
 print(G.credible_interval)
 
+# density
 G.density <- density(G)
 G.density.df <- data.frame(x = G.density$x, y = G.density$y)
 
 G.density.ordered <- G.density.df[with(G.density.df, order(y)),]
 G.density.ordered <- data.frame(x = G.density.ordered$x, y = G.density.ordered$y)
-print(G.density.ordered)
-G.density.ordered.95 = G.density.ordered[(512*0.05+1):512,]
-print(G.density.ordered.95)
+G.density.dn = cumsum(G.density.ordered$y)/sum(G.density.ordered$y)
+G.0.05 = which(G.density.dn >= 0.05)[1]
+G.density.ordered.95 = G.density.ordered[(G.0.05+1):512,]
+G.density.interval <- c(min(G.density.ordered.95$x),max(G.density.ordered.95$x))
