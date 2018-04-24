@@ -86,8 +86,6 @@ for (i in 1:nDraws) {
   posterior_y[i,] = beta_draws[i,1] + beta_draws[i,2]*data$time + beta_draws[i,3]*data$time^2
 }
 
-
-
 posterior_CI = apply(X = posterior_y, MARGIN=2, FUN=function(x) quantile(x,c(0.05, 0.95), na.rm=T))
 lines(data$time, posterior_CI[2,], col="green")
 lines(data$time, posterior_CI[1,], col="green")
