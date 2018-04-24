@@ -26,7 +26,7 @@ tau = 10
 Sigma = tau^2*diag(p)
 
 # log posterior of a logistic regression
-LogPostLogistic = function(beta, y, X, my, Sigma) {
+logPostLogistic = function(beta, y, X, my, Sigma) {
   p = length(beta)
   ypred = X %*% beta # make prediction
   
@@ -65,4 +65,20 @@ beta.draws = rmvnorm(n = nDraws, mean = beta.mode, sigma = beta.invhessian) # dr
 beta.NSmallChild.CI = apply(X = beta.draws, MARGIN=2, FUN=function(x) quantile(x,c(0.025, 0.975), na.rm=T))[,7] #-2.1315425 -0.6067602
 
 # c)
+
+sigmoid = function(pred) {
+  return(exp(pred)/(1+exp(pred)))
+}
+
+logReg = function(woman, mean, Sigma, nDraws) {
+  beta.draws = rmvnorm(n = nDraws, mean = mean, sigma = Sigma)
+  pred = beta.draws %*% woman
+  y.pred = sigmoid(pred)
+  return(y.pred)
+}
+
+woman = c(1, 10, 8, 10, (10/10)^2, 40, 1, 1)
+y.pred = logReg(woman, beta.mode, beta.invhessian, 10000)
+hist(y.pred)
+print(sum(ifelse(y.pred>0.5, 1, 0)))
 
