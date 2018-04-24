@@ -4,11 +4,12 @@
 data = read.table("TempLinkoping.txt", header=TRUE)
 library(MASS)
 
+## Implementation
 # a)
 # my0
 B0 = -5 # prior knowledge: Mean temp of -5 degrees 1st of January
-B1 = 20 # reasonable curve for 20 degrees in 30th of June
-B2 = 60 # reasonable curve for 20 degrees in 30th of June
+B1 = 20 # curve for 20 degrees in 30th of June
+B2 = 60 # curve for 20 degrees in 30th of June
 my0 = c(B0, B1, B2)
 curve(-5+B1*x+B2*x^2)
 points(data) # for comparision
@@ -31,9 +32,9 @@ my0 = c(B0, B1, B2)
 sigma2_0 = 2
 v0 = 100
 omega0 = diag(c(0.5, 0.5, 0.5))
+nDraws = 1000
 
 # simulation
-nDraws = 1000
 chi2 = rchisq(v0, n=nDraws)
 sigma2_draws = v0*sigma2_0/chi2
 omega0_inv = solve(omega0)
@@ -90,3 +91,21 @@ posterior_CI = apply(X = posterior_y, MARGIN=2, FUN=function(x) quantile(x,c(0.0
 lines(data$time, posterior_CI[2,], col="green")
 lines(data$time, posterior_CI[1,], col="green")
 
+# d)
+# f'(time) = B_1 + 2*B_2*time = 0
+# time_* = (-B_1)/(2*B_2)
+plot(data)
+time_star = numeric()
+posterior_y = numeric()
+for (i in 1:nDraws) {
+  beta_draw = mvrnorm(n = 1, mu = myn, Sigma = sigma2_draws[i]*omegan_inv)
+  time_star[i] = (-beta_draw[2])/(2*beta_draw[3])
+  posterior_y[i] = beta_draw[1] + beta_draw[2]*time_star + beta_draw[3]*time_star^2
+}
+plot(time_star, posterior_y)
+hist(posterior_y, breaks=20) # around 15 degrees
+
+# e)
+# replace prior with ridge regression (or laplace prior) prior, where mu0 = 0 and
+# omega0 is diagonal matrix with lambda values, larger lamba results in more shrinkage = less overfitting
+     
