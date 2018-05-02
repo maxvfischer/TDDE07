@@ -22,18 +22,20 @@ nDraws = 10000
 
 draw <- rchisq(n=nDraws, df=n)
 sigma2 <- n*tau2(data, my)/draw
-hist(sigma2, breaks=100)
+hist(sigma2, breaks=1000)
 
 # b)
 sigma = sqrt(sigma2)
 G <- 2 * pnorm(sigma/sqrt(2), mean = 0, sd = 1) - 1
-hist(G, breaks=100)
+plot(density(G))
 
 # c)
 # equal tail
 G.sorted <- sort(G)[(nDraws*0.025+1):(nDraws*0.975)] 
 G.credible_interval <- c(min(G.sorted), max(G.sorted)) # Credible interval 
-print(G.credible_interval)
+print(G.credible_interval) #0.1738928 0.4144967
+abline(v = G.credible_interval[1], col="blue")
+abline(v = G.credible_interval[2], col="blue")
 
 # density
 G.density <- density(G)
@@ -45,3 +47,6 @@ G.density.dn = cumsum(G.density.ordered$y)/sum(G.density.ordered$y)
 G.0.05 = which(G.density.dn >= 0.05)[1]
 G.density.ordered.95 = G.density.ordered[(G.0.05+1):512,]
 G.density.interval <- c(min(G.density.ordered.95$x),max(G.density.ordered.95$x))
+print(G.density.interval) #0.1611648 0.3886683
+abline(v = G.density.interval[1], col="green")
+abline(v = G.density.interval[2], col="green")

@@ -5,10 +5,13 @@ library("mvtnorm")
 data = read.table("WomenWork.dat", header=TRUE)
 
 # a)
-glmModel <- glm(Work ~ 0 + ., data = data, family = binomial)
-head(glmModel)
-plot(glmModel$fitted.values)
-pred = glmModel$fitted.values > 0.5
+# fit model
+glm.model <- glm(Work ~ 0 + ., data = data, family = binomial)
+
+# make predictions
+pred = glm.model$fitted.values > 0.5
+
+# depict predictions based on # of small children and experience years^2
 plot(data$NSmallChild, data$ExpYears2, col=rgb(0,1-pred,pred))
 
 # b)
@@ -45,7 +48,7 @@ logPostLogistic = function(beta, y, X, my, Sigma) {
 
 # use optim to find max
 beta.init = rep(0, p)
-optim.res = optim(beta.init, LogPostLogistic, gr=NULL, y, X, my, Sigma, method="BFGS", control=list(fnscale=-1), hessian=TRUE)
+optim.res = optim(beta.init, logPostLogistic, gr=NULL, y, X, my, Sigma, method="BFGS", control=list(fnscale=-1), hessian=TRUE)
 beta.mode = optim.res$par #0.62672884 -0.01979113  0.18021897  0.16756670 -0.14459669 -0.08206561 -1.35913317 -0.02468351
 beta.invhessian = -solve(optim.res$hessian)
 #  2.266022568  3.338861e-03 -6.545121e-02 -1.179140e-02  0.0457807243 -3.029345e-02 -0.1887483542 -0.0980239285
@@ -80,5 +83,5 @@ logReg = function(woman, mean, Sigma, nDraws) {
 woman = c(1, 10, 8, 10, (10/10)^2, 40, 1, 1)
 y.pred = logReg(woman, beta.mode, beta.invhessian, 10000)
 hist(y.pred)
-print(sum(ifelse(y.pred>0.5, 1, 0)))
+print(mean(ifelse(y.pred>0.5, 1, 0))) #0.0055 ~0.5%
 
