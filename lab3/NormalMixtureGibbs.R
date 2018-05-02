@@ -1,70 +1,21 @@
-#### Lab 3 Task 1
+# Estimating a simple mixture of normals
+# Author: Mattias Villani, IDA, Linkoping University. http://mattiasvillani.com
 
-### Setup
-x = read.table("rainfall.dat", header=TRUE)[,1]
-n = length(x)
-
-## prior
-mu0 = mean(x)
-tau0 = 10
-v0 = 5 # << n so should not matter too much (w close to 1)
-sigma0 = 40
-
-### Functions
-
-### Implementation
-# a) i)
-# to keep track of samples
-mu.samples = numeric()
-sigma2.samples = numeric()
-
-# initialize with prior values (any starting point is sufficient)
-mu.sample = mu0
-sigma2.sample = sigma0
-
-for (i in 1:10000) {
-  ## mu sampling
-  # mun
-  w = (n / sigma2.sample) / ( n / sigma2.sample + 1 / tau0^2 )
-  mun = w * mean(x) + (1 - w) / mu0
-  # taun2
-  taun2 = 1 / (n / sigma2.sample + 1 / tau0^2)
-  # sample mu
-  mu.sample = rnorm(1, mean = mun, sd = sqrt(taun2))
-  mu.samples[i] = mu.sample
-  
-  ## sigma sampling
-  # vn
-  vn = n + v0
-  # sigma2n
-  sigma2n = (v0 * sigma0^2 + sum((x - mu.sample)^2)) / (n + v0)
-  chi2 = rchisq(vn, n=1)
-  sigma2.sample = vn * sigma2n / chi2
-  sigma2.samples[i] = sigma2.sample
-}
-# plot of the trajectories
-plot(mu.samples, type="l")
-plot(sigma2.samples, type="l")
-
-# histogram of the distribution
-hist(mu.samples)
-hist(sigma2.samples)
-
-#b)
-## Estimating a simple mixture of normals
-
+##########    BEGIN USER INPUT #################
 # Data options
-x = as.matrix(x)
+data(faithful)
+rawData <- faithful
+x <- as.matrix(rawData['eruptions'])
 
 # Model options
 nComp <- 2    # Number of mixture components
 
 # Prior options
-alpha <- 10 * rep(1,nComp) # Dirichlet(alpha)
-muPrior <- mu0 * rep(1,nComp) # Prior mean of mu
-tau2Prior <- tau0^2 * rep(1,nComp) # Prior std of mu
-sigma2_0 <- sigma0^2 * rep(1,nComp) # Best guess
-nu0 <- v0 * rep(1,nComp) # degrees of freedom for prior on sigma2
+alpha <- 10*rep(1,nComp) # Dirichlet(alpha)
+muPrior <- rep(0,nComp) # Prior mean of mu
+tau2Prior <- rep(10,nComp) # Prior std of mu
+sigma2_0 <- rep(var(x),nComp) # s20 (best guess of sigma2)
+nu0 <- rep(4,nComp) # degrees of freedom for prior on sigma2
 
 # MCMC options
 nIter <- 40 # Number of Gibbs sampling draws
@@ -72,7 +23,7 @@ nIter <- 40 # Number of Gibbs sampling draws
 # Plotting options
 plotFit <- TRUE
 lineColors <- c("blue", "green", "magenta", 'yellow')
-#sleepTime <- 0.1 # Adding sleep time between iterations for plotting
+sleepTime <- 0.1 # Adding sleep time between iterations for plotting
 ################   END USER INPUT ###############
 
 ###### Defining a function that simulates from the 
@@ -81,7 +32,6 @@ rScaledInvChi2 <- function(n, df, scale){
 }
 
 ####### Defining a function that simulates from a Dirichlet distribution
-# param = c(alpha1 + n1, alpha2 + n2)
 rDirichlet <- function(param){
   nCat <- length(param)
   piDraws <- matrix(NA,nCat,1)
@@ -165,9 +115,9 @@ for (k in 1:nIter){
     mixDensMean <- ((effIterCount-1)*mixDensMean + mixDens)/effIterCount
     
     lines(xGrid, mixDens, type = "l", lty = 2, lwd = 3, col = 'red')
-    legend("topright", box.lty = 1, legend = c("Data histogram",components, 'Mixture'), 
+    legend("topleft", box.lty = 1, legend = c("Data histogram",components, 'Mixture'), 
            col = c("black",lineColors[1:nComp], 'red'), lwd = 2)
-    # Sys.sleep(sleepTime)
+    Sys.sleep(sleepTime)
   }
   
 }
@@ -178,5 +128,3 @@ lines(xGrid, dnorm(xGrid, mean = mean(x), sd = apply(x,2,sd)), type = "l", lwd =
 legend("topright", box.lty = 1, legend = c("Data histogram","Mixture density","Normal density"), col=c("black","red","blue"), lwd = 2)
 
 #########################    Helper functions    ##############################################
-
-
