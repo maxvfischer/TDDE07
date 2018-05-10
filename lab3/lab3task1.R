@@ -55,6 +55,7 @@ hist(sigma2.samples)
 
 # Data options
 x = as.matrix(x)
+# x = as.matrix(rexp(6000, rate=0.025)), interesting comparison
 
 # Model options
 nComp <- 2    # Number of mixture components
@@ -67,12 +68,13 @@ sigma2_0 <- sigma0^2 * rep(1,nComp) # Best guess
 nu0 <- v0 * rep(1,nComp) # degrees of freedom for prior on sigma2
 
 # MCMC options
-nIter <- 40 # Number of Gibbs sampling draws
+# Reaches reasonable distribution at around 35 iterations
+nIter <- 200 # Number of Gibbs sampling draws
 
 # Plotting options
 plotFit <- TRUE
 lineColors <- c("blue", "green", "magenta", 'yellow')
-#sleepTime <- 0.1 # Adding sleep time between iterations for plotting
+sleepTime <- 2 # Adding sleep time between iterations for plotting
 ################   END USER INPUT ###############
 
 ###### Defining a function that simulates from the 
@@ -122,10 +124,16 @@ for (k in 1:nIter){
   message(paste('Iteration number:',k))
   alloc <- S2alloc(S) # Just a function that converts between different representations of the group allocations
   nAlloc <- colSums(S)
+  print("nAlloc")
   print(nAlloc)
   # Update components probabilities
+  # alpha = (alpha, beta)
+  # nAlloc = (s, f)
+  # As nAlloc is changing, pi will tend to move towards the model that includes the most
+  # observations
   pi <- rDirichlet(alpha + nAlloc)
-  
+  print("Pi")
+  print(pi)
   # Update mu's
   for (j in 1:nComp){
     precPrior <- 1/tau2Prior[j]
@@ -167,7 +175,7 @@ for (k in 1:nIter){
     lines(xGrid, mixDens, type = "l", lty = 2, lwd = 3, col = 'red')
     legend("topright", box.lty = 1, legend = c("Data histogram",components, 'Mixture'), 
            col = c("black",lineColors[1:nComp], 'red'), lwd = 2)
-    # Sys.sleep(sleepTime)
+    #Sys.sleep(sleepTime)
   }
   
 }
@@ -177,6 +185,12 @@ lines(xGrid, mixDensMean, type = "l", lwd = 2, lty = 4, col = "red")
 lines(xGrid, dnorm(xGrid, mean = mean(x), sd = apply(x,2,sd)), type = "l", lwd = 2, col = "blue")
 legend("topright", box.lty = 1, legend = c("Data histogram","Mixture density","Normal density"), col=c("black","red","blue"), lwd = 2)
 
-#########################    Helper functions    ##############################################
-
-
+# c)
+par(mfrow = c(1, 1))
+hist(x, freq=FALSE, breaks=20)
+lines(xGrid, mixDensMean, type = "l", lwd = 2, lty = 4, col = "red")
+mu = mean(mu.samples)
+sigma2 = mean(sigma2.samples)
+lines(xGrid, dnorm(xGrid, mean = mu , sd = sqrt(sigma2)), type = "l", lwd = 2, col = "blue")
+legend("topright", box.lty = 1, legend = c("Data histogram", "Mixture density", "Regular Gibbs density"), col = c("black", "red", "blue"), lwd = 2)
+      
