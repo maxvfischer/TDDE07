@@ -31,6 +31,7 @@ for (i in 1:10000) {
   taun2 = 1 / (n / sigma2.sample + 1 / tau0^2)
   # sample mu
   mu.sample = rnorm(1, mean = mun, sd = sqrt(taun2))
+  #mu.sample = rexp(1, rate = 1 / mun) if you want to try exponential
   mu.samples[i] = mu.sample
   
   ## sigma sampling
@@ -69,7 +70,7 @@ nu0 <- v0 * rep(1,nComp) # degrees of freedom for prior on sigma2
 
 # MCMC options
 # Reaches reasonable distribution at around 35 iterations
-nIter <- 200 # Number of Gibbs sampling draws
+nIter <- 100 # Number of Gibbs sampling draws
 
 # Plotting options
 plotFit <- TRUE
@@ -119,7 +120,7 @@ mixDensMean <- rep(0,length(xGrid))
 effIterCount <- 0
 ylim <- c(0,2*max(hist(x)$density))
 
-
+mus = numeric()
 for (k in 1:nIter){
   message(paste('Iteration number:',k))
   alloc <- S2alloc(S) # Just a function that converts between different representations of the group allocations
@@ -143,6 +144,7 @@ for (k in 1:nIter){
     muPost <- wPrior*muPrior + (1-wPrior)*mean(x[alloc == j])
     tau2Post <- 1/precPost
     mu[j] <- rnorm(1, mean = muPost, sd = sqrt(tau2Post))
+    mus[k] = mu[j]
   }
   
   # Update sigma2's
@@ -191,6 +193,6 @@ hist(x, freq=FALSE, breaks=20)
 lines(xGrid, mixDensMean, type = "l", lwd = 2, lty = 4, col = "red")
 mu = mean(mu.samples)
 sigma2 = mean(sigma2.samples)
-lines(xGrid, dnorm(xGrid, mean = mu , sd = sqrt(sigma2)), type = "l", lwd = 2, col = "blue")
+lines(xGrid, dnorm(xGrid, mean = mu, sd=sqrt(sigma2)), type = "l", lwd = 2, col = "blue")
 legend("topright", box.lty = 1, legend = c("Data histogram", "Mixture density", "Regular Gibbs density"), col = c("black", "red", "blue"), lwd = 2)
       
