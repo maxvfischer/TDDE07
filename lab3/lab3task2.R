@@ -38,9 +38,6 @@ plot(x.samples[41,])
 x.03 = AR.simulation(mu, sigma2, T, phi=0.3)
 x.95 = AR.simulation(mu, sigma2, T, phi=0.95)
 
-rstan_options(auto_write = TRUE)
-options(mc.cores = parallel::detectCores())
-
 ARStanModel = 'data {
   int<lower=0> N;
   vector[N] x;
@@ -52,7 +49,7 @@ parameters {
 }
 model {
   for (n in 2:N)
-    x[n] ~ normal(mu + phi * x[n-1], sigma);
+    x[n] ~ normal(mu + phi * (x[n-1] - mu), sigma);
 }'
 
 # perform MCMC
@@ -80,8 +77,8 @@ x.params.95 = extract(x.fit.95)
 
 ## credible intervals
 probs = c(0.025,0.975)
-CI.mu.03 <- apply(as.matrix(x.params.03$mu), 2, quantile, probs=probs) # (5.59146, 8.25748)
-CI.mu.95 <- apply(as.matrix(x.params.95$mu), 2, quantile, probs=probs) # (0.5284631, 1.9843986)
+CI.mu.03 <- apply(as.matrix(x.params.03$mu), 2, quantile, probs=probs) # (9.709384, 10.208119)
+CI.mu.95 <- apply(as.matrix(x.params.95$mu), 2, quantile, probs=probs) # (-5.017947, 21.271056)
 CI.phi.03 <- apply(as.matrix(x.params.03$phi), 2, quantile, probs=probs) # (0.1847434, 0.4413590)
 CI.phi.95 <- apply(as.matrix(x.params.95$phi), 2, quantile, probs=probs) # (0.7994717, 0.9406423)
 CI.sigma.03 <- apply(as.matrix(x.params.03$sigma), 2, quantile, probs=probs) # (1.328897, 1.617287)
@@ -104,9 +101,91 @@ sigma.post.95 = post.mean.x.95[3,5] # 1.405657
 
 #ii)
 # plot density
-par(mfrow=c(1,2))
+par(mfrow=c(1,1))
 plot(x=x.params.03$mu, y=x.params.03$phi,
      xlab="mu", ylab="phi", main="Posterior density, AR with phi=0.3")
 plot(x=x.params.95$mu, y=x.params.95$phi,
-     xlab="mu", ylab="phi", main="Posterior density, AR with phi=0.3")
+     xlab="mu", ylab="phi", main="Posterior density, AR with phi=0.95")
+
+#c)
+
+data.campy = read.table("campy.dat", header=TRUE)[,1]
+N = length(data.campy)
+
+PoissonARStanModel = '
+data {
+  int<lower=0> N;
+  int c[N];
+}
+parameters {
+  real mu;
+  real phi;
+  real<lower=0> sigma;
+  vector[N] x;
+}
+model {
+  // mu ~ normal();
+  // sigma2 ~ scaled_inv_chi_square();
+  // phi ~ normal(0, 0.6);
+  phi ~ uniform(-1,1);
+  for (n in 2:N)
+    x[n] ~ normal(mu + phi * (x[n-1] - mu), sigma);
+  for (n in 1:N)
+    c[n] ~ poisson(exp(x[n]));
+}'
+par(mfrow=c(1,1))
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+c.fit = stan(model_code=PoissonARStanModel, data=list(N = N, c = data.campy))
+c.params = extract(c.fit)
+c.summary = summary(c.fit)
+X.summary = summary(c.fit)$summary[-c(1,2,3),]
+
+# extract CI and mean of x
+x.upper = X.summary[,"97.5%"]
+x.lower = X.summary[,"2.5%"]
+x.mean = X.summary[,"mean"]
+
+# plot data, mean and CI of the latent intensity
+plot(data.campy, xlab="time", ylab="value")
+lines(exp(x.upper), col="green")
+lines(exp(x.lower), col="green")
+lines(exp(x.mean), col="red")
+# very volatile, a smoothness factor seems reasonable
+
+# d)
+SmoothPoissonARStanModel = '
+data {
+  int<lower=0> N;
+  int c[N];
+}
+parameters {
+  real mu;
+  real phi;
+  real<lower=0> sigma2;
+  vector[N] x;
+}
+model {
+  // mu ~ normal();
+  // phi ~ normal(0, 0.6);
+  sigma2 ~ scaled_inv_chi_square(N, 0.03);
+  phi ~ uniform(-1,1);
+  for (n in 2:N)
+    x[n] ~ normal(mu + phi * (x[n-1] - mu), sqrt(sigma2));
+  for (n in 1:N)
+    c[n] ~ poisson(exp(x[n]));
+}'
+c.fit.smooth = stan(model_code=SmoothPoissonARStanModel, data=list(N = N, c = data.campy))
+X.summary.smooth = summary(c.fit.smooth)$summary[-c(1,2,3),]
+
+# extract CI and mean of x
+x.upper.smooth = X.summary.smooth[,"97.5%"]
+x.lower.smooth = X.summary.smooth[,"2.5%"]
+x.mean.smooth = X.summary.smooth[,"mean"]
+
+# plot data, mean and CI of the latent intensity
+plot(data.campy, xlab="time", ylab="value")
+lines(exp(x.upper.smooth), col="blue")
+lines(exp(x.lower.smooth), col="blue")
+lines(exp(x.mean.smooth), col="red")
 
