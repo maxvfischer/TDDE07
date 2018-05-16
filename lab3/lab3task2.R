@@ -28,10 +28,10 @@ for(i in 1:n) {
 }
 # plot results
 par(mfrow=c(2,2))
-plot(x.samples[1,])
-plot(x.samples[15,])
-plot(x.samples[25,])
-plot(x.samples[41,])
+plot(x.samples[1,], xlab="t", ylab="x_t", main="phi=-1")
+plot(x.samples[15,], xlab="t", ylab="x_t", main="phi=--0.3")
+plot(x.samples[27,], xlab="t", ylab="x_t", main="phi=0.3")
+plot(x.samples[40,], xlab="t", ylab="x_t", main="phi=0.95")
 
 # b)
 # sample AR processes with phi=0.3 and phi=0.95
@@ -82,7 +82,7 @@ CI.mu.95 <- apply(as.matrix(x.params.95$mu), 2, quantile, probs=probs) # (-5.017
 CI.phi.03 <- apply(as.matrix(x.params.03$phi), 2, quantile, probs=probs) # (0.1847434, 0.4413590)
 CI.phi.95 <- apply(as.matrix(x.params.95$phi), 2, quantile, probs=probs) # (0.7994717, 0.9406423)
 CI.sigma.03 <- apply(as.matrix(x.params.03$sigma), 2, quantile, probs=probs) # (1.328897, 1.617287)
-CI.sigma.95 <- apply(as.matrix(x.params.95$mu), 2, quantile, probs=probs) # (0.5284631, 1.9843986)
+CI.sigma.95 <- apply(as.matrix(x.params.95$sigma), 2, quantile, probs=probs) # (0.5284631, 1.9843986)
 
 ## estimation of true values:
 # posterior means
@@ -133,12 +133,14 @@ model {
   for (n in 1:N)
     c[n] ~ poisson(exp(x[n]));
 }'
+c.fit = stan(model_code=PoissonARStanModel, data=list(N = N, c = data.campy))
+
 par(mfrow=c(1,1))
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
-c.fit = stan(model_code=PoissonARStanModel, data=list(N = N, c = data.campy))
 c.params = extract(c.fit)
 c.summary = summary(c.fit)
+
 X.summary = summary(c.fit)$summary[-c(1,2,3),]
 
 # extract CI and mean of x

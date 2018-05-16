@@ -38,10 +38,10 @@ logPostLogistic = function(beta, y, X, my, Sigma) {
   
   # If likelihood is very large or very small, the abs(log.likelihood) will be close to infinity. In those cases we set
   # log.likelihood to -20000
-  if (abs(log.likelihood) == Inf) log.likelihood = -20000;
+  if (abs(log.likelihood) == Inf) log.likelihood = -20000
   
   # Logarithm of the prior
-  log.prior <- dmvnorm(beta, matrix(0, p, 1), Sigma, log=TRUE);
+  log.prior <- dmvnorm(beta, matrix(0, p, 1), Sigma, log=TRUE)
   
   return(log.likelihood + log.prior)
 }
