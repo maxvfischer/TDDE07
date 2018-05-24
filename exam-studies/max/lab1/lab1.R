@@ -212,3 +212,43 @@ abline(v = gini_coef_CI$lower, col='blue') # Plot lower CI line
 abline(v = gini_coef_CI$upper, col='blue') # Plot upper CI line
 abline(v = HDP_interval$lower, col='green') # Plot lower HPD interval
 abline(v = HDP_interval$upper, col='green') # Plot upper HPD interval
+
+############# Task 3 #############
+# von Mises distribution looks like a normal distribution with a spiky top and
+# is a continues probability distribution on the circle, where theta is an angle.
+# Kappa (κ): Concentration parameter. Large κ gives small variance around µ.
+# Likelihood: p(y_1, ..., y_n | µ, κ) = exp[ κ * cos(y - µ) ]/(2πIo(κ))
+# Prior: κ ~ Exp(λ = 1), mean = 1/λ
+
+# Setup
+# Wind-angles in degrees on 10 different days
+# North is zero
+# 
+y.degrees <- c(40, 303, 326, 285, 296, 314, 20, 308, 299, 296) 
+y.radians <- c(-2.44, 2.14, 2.54, 1.83, 2.02, 2.33, -2.79, 2.23, 2.07, 2.02)
+mu <- 2.39 # Mean directon
+
+# a)
+# Prior
+kappa <- data.frame(seq = seq(0, 10, 0.01),
+                    posterior = 0
+)
+
+for (i in 1:dim(kappa)[1]) { # Loop over every kappa
+  k <- kappa$seq[i] # Extract current kappa
+  prior <- exp(-k) # Calculate prior with current kappa
+  bessel <- besselI(x = k,
+                    nu = 0) # Bessel-function
+  likelihood <- prod(exp(k * cos(y.radians - mu))/(2*pi*bessel)) # Calculate von Mises probability
+  kappa$posterior[i] <- likelihood * prior # Calculate posterior with current kappa
+}
+
+# Plot posterior for different kappas
+plot(kappa$seq, kappa$posterior, type='l')
+
+# b)
+index <- which.max(kappa$posterior) # Finds index with maximum posterior
+kappa.mode <- kappa$seq[which.max(kappa$posterior)] # Extract kappa with maximum posterior
+
+plot(kappa$seq, kappa$posterior, type='l')
+abline(v = kappa.mode, col='red')
