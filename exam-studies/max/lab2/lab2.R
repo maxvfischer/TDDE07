@@ -1,9 +1,9 @@
 ########################## Lab1 ##########################
 
 # Functions
-scal_inv_schsq <- function(v0, σ0_2, nDraws) {
-  X <- rchisq(n = nDraws, df = v0)
-  return (v0*σ0_2/X)
+scal_inv_schsq <- function(v, σ_2, nDraws) {
+  X <- rchisq(n = nDraws, df = v)
+  return (v*σ_2/X)
 }
 
 ############# Task 1 #############
@@ -23,9 +23,9 @@ scal_inv_schsq <- function(v0, σ0_2, nDraws) {
 
 dataset <- read.table("TempLinkoping.txt", header = TRUE)
 
-prior.mu0 <- c(-5, 20, 60)
+prior.mu0 <- c(-5, 100, -100)
 prior.v0 <- 10
-prior.σ0_2 <- (10/1.96)^2 # 10 = 1.95 * σ -> 10 degrees are in the confidence interval 95% of the times
+prior.σ0_2 <- (7/1.96)^2 # 10 = 1.95 * σ -> 10 degrees are in the confidence interval 95% of the times
 prior.Ω0 <- matrix(c(0.5, 0, 0, 0, 0.1, 0, 0, 0, 0.1),
                    nrow = 3,
                    ncol = 3)
@@ -54,3 +54,44 @@ for (i in 1:nDraws) {
 lines(dataset$time,
       mean(beta_draws[,1]) + mean(beta_draws[,2])*dataset$time + mean(beta_draws[,3])*dataset$time^2,
       col=rgb(1, 0, 0, 1))
+
+# Priors not sensible. New priors
+prior.mu0 <- c(-5, 100, -100)
+prior.v0 <- 10
+prior.σ0_2 <- (7/1.96)^2 # 7 = 1.95 * σ -> 7 degrees are in the confidence interval 95% of the times
+prior.Ω0 <- matrix(c(0.5, 0, 0, 0, 0.1, 0, 0, 0, 0.1),
+                   nrow = 3,
+                   ncol = 3)
+prior.inv_Ω0 <- solve(prior.Ω0)
+n <- dim(dataset)[1]
+
+# c) 
+
+# Setup
+X <- cbind(1, dataset$time, dataset$time^2) # Create X with constant row for beta_0
+Y <- dataset$temp
+
+# Posterior
+beta_hat <- solve(t(X)%*%X)%*%t(X)%*%Y # Beta_hat by classic by OLS (Ordinary Least Square)
+posterior.mun <- solve(t(X) %*% X + prior.Ω0) %*% (t(X) %*% X %*% beta_hat + prior.Ω0 %*% prior.mu0) # Mu_n
+posterior.Ωn <- t(X)%*%X + prior.Ω0 # Omega_n
+posterior.inv_Ωn <- solve(posterior.Ωn) # Inverse Omega_n
+posterior.vn <- prior.v0 + n # v_n
+posterior.sigman_2 <- (t(Y) %*% Y + t(prior.mu0) %*% prior.Ω0 %*% prior.mu0 - t(posterior.mun) %*% posterior.Ωn %*% posterior.mun)/posterior.vn
+
+nDraws <- 10000
+beta_post_draws <- matrix(nrow = nDraws,
+                          ncol = 3)
+
+# Draws of sigma2 and beta posteriors
+for (i in 1:nDraws) {
+  sigma2 <- as.vector(scal_inv_schsq(posterior.vn, posterior.sigman_2, 1))
+  beta_post_draws <- rmvnorm(n = 1,
+                             mean = posterior.mun,
+                             sigma = sigma2*posterior.inv_Ωn)
+}
+
+# Plot data and mean regression line
+plot(dataset)
+lines(dataset$time, mean(beta_post_draws[,1]) + mean(beta_post_draws[,2]) * dataset$time + mean(beta_post_draws[,3]) * dataset$time^2,
+          col=rgb(1, 0, 0, 1))
