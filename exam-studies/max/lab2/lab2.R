@@ -70,6 +70,10 @@ n <- dim(dataset)[1]
 # Setup
 X <- cbind(1, dataset$time, dataset$time^2) # Create X with constant row for beta_0
 Y <- dataset$temp
+n <- dim(dataset)[1]
+CI <- 0.90
+CI_lower <- (1-CI)/2 # 0.05
+CI_upper <- 1-(1-CI)/2 # 0.95
 
 # Posterior
 beta_hat <- solve(t(X)%*%X)%*%t(X)%*%Y # Beta_hat by classic by OLS (Ordinary Least Square)
@@ -82,16 +86,30 @@ posterior.sigman_2 <- (t(Y) %*% Y + t(prior.mu0) %*% prior.Ω0 %*% prior.mu0 - t
 nDraws <- 10000
 beta_post_draws <- matrix(nrow = nDraws,
                           ncol = 3)
+posterior_y <- matrix(nrow = nDraws,
+                      ncol = n)
 
 # Draws of sigma2 and beta posteriors
 for (i in 1:nDraws) {
   sigma2 <- as.vector(scal_inv_schsq(posterior.vn, posterior.sigman_2, 1))
-  beta_post_draws <- rmvnorm(n = 1,
+  beta_post_draws[i,] <- rmvnorm(n = 1,
                              mean = posterior.mun,
                              sigma = sigma2*posterior.inv_Ωn)
 }
+
+# Generates a large matrix (10000 x 366), For each time/column (366) -> 10000 predicted temps/rows, one for each beta-draw
+temp_pred_each_time <-  t(X %*% t(beta_post_draws))
+temp_pred_each_time_sorted = apply(X = temp_pred_each_time, 
+                                   MARGIN = 2, 
+                                   sort) # Sort each time/row
+
+# Extract lower and upper
+temp_pred_CI90 <- rbind(temp_pred_each_time_sorted[round(nDraws*CI_lower),], 
+                        temp_pred_each_time_sorted[round(nDraws*CI_upper),]) 
 
 # Plot data and mean regression line
 plot(dataset)
 lines(dataset$time, mean(beta_post_draws[,1]) + mean(beta_post_draws[,2]) * dataset$time + mean(beta_post_draws[,3]) * dataset$time^2,
           col=rgb(1, 0, 0, 1))
+lines(dataset$time, temp_pred_CI90[1,], col=rgb(0, 1, 0, 1))
+lines(dataset$time, temp_pred_CI90[2,], col=rgb(0, 1, 0, 1))
