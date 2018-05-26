@@ -113,3 +113,145 @@ lines(dataset$time, mean(beta_post_draws[,1]) + mean(beta_post_draws[,2]) * data
           col=rgb(1, 0, 0, 1))
 lines(dataset$time, temp_pred_CI90[1,], col=rgb(0, 1, 0, 1))
 lines(dataset$time, temp_pred_CI90[2,], col=rgb(0, 1, 0, 1))
+
+# d)
+# Time with highest expected temperature: time = -B1/2B2
+# Calculated from the derivation of f(time) set to 0. 
+
+posterior_max_time <- -beta_post_draws[,2]/(2*beta_post_draws[,3])
+abline(v = mean(posterior_max_time), col=rgb(0, 0, 1, 1))
+
+# e)
+# To mitigate the risk of overfitting due to higher order polynomials we want to have a small
+# mu_n for larger betas. This will lead to a smaller coefficient for the higher polynomials,
+# thus making them affect the end result less.
+# 1) Set my_0 corresponding to higher polynomials low
+# 2) Set the diagonal indices of Ometa_0 corresponding higher polynomial high
+
+############# Task 2 #############
+# Posterior approximation for classification with logistic regression
+# Dataset:
+# Response variable: Work
+# Covariates: Constant  HustbandInc EducYear  ExpYear   ExpYear2  Age   NSmallChild   NBigChild
+
+dataset <- read.table("WomenWork.dat", header=TRUE)
+
+# a)
+
+logRegFit <- glm(formula = Work ~.-Constant, data = dataset, family = "binomial")
+
+# b)
+# Approx posterior distribution of 8-dim parameter vector β
+# Posterior: β | y, X ~ N(Beta_mode, Inv_Hessian_At_Beta_bode)
+# Likelihood: y | β, X = exp(x_i*β)^(y_i)/[ 1+exp(x_i*β) ]
+# Prior: β ~ N(0, τ_2*I), τ = 10
+
+# Functions
+# !!!!! Important to remember !!!!!
+## 1) Always use log posterior as it's more stable and avoids problems with to small or large numbers
+## 2) Don't forget that in log -> posterior = log.likelihood + log.prior
+## 3) Don't forget to handle Infinity
+postLogReg <- function(β, mu_0, X, Y, tau) {
+  no_of_betas <- length(β) # Number of covariates
+  sigma <- tau^2 * diag(no_of_betas) # Calculate sigma tau^2 * I
+
+  # Likelihood
+  # Logarithm of prod[ exp(x*β)^Y / (1 + exp(x*β))]
+  log.likelihood <- sum(t(Y) %*% X %*% β) - log(prod(1 + exp(X %*% β)))
+  
+  if (abs(log.likelihood) == Inf) log.likelihood = -20000;
+  
+  # Prior
+  log.prior <- dmvnorm(β, mean = mu_0, sigma = sigma, log = TRUE)
+
+  return (log.likelihood + log.prior)
+}
+
+# Setup
+n_parameters <- dim(dataset[,-1])[2] # No. of covariates
+X <- as.matrix(dataset[, -1])
+Y <- as.matrix(dataset[, 1])
+nDraws = 10000
+CI_interval = c(0.025, 0.975)
+
+# Prior
+β0 <- as.matrix(rep(0, n_parameters)) # Initial beta-values
+beta.prior.mu_0 <- rep(0, n_parameters) # Mu_0
+beta.prior.tau <- 10 # Tau: Given in the task
+
+# Optim
+# par: Initial values for parameter to me optimized
+# fn: Function to be minimized/maximized
+# Variables: Pass all variables except the one being maximized
+optim.res <- optim(par = β0, 
+                   fn = postLogReg, 
+                   gr = NULL,
+                   mu_0 = beta.prior.mu_0, 
+                   X = X, 
+                   Y = Y, 
+                   tau = beta.prior.tau,
+                   method = "BFGS", 
+                   control = list(fnscale=-1), 
+                   hessian = TRUE
+                   )
+
+β.mode <- optim.res$par # Mode of beta
+β.hessian.neg.inv <- -solve(optim.res$hessian) # Negative inverse hessian of beta
+
+# Beta draws
+β.draws <- matrix(nrow = nDraws,
+                  ncol = n_parameters)
+
+for (i in 1:nDraws) {
+  β.draws[i, ] <- mvrnorm(n = 1, mu = β.mode, Sigma = β.hessian.inv)
+}
+
+# Calculate Credible Interval of NSmallChild
+NSmallChild.draws <- sort(β.draws[, 7]) # Sort all draws in ascending order
+NSmallChild.CI <- c(NSmallChild.draws[round(nDraws*CI_interval[1])],
+                    NSmallChild.draws[round(nDraws*CI_interval[2])]) # Extract Credible intervals
+
+# Hist of draws of NSmallChild
+breaks <- 200
+h <- hist(β.draws[,7], breaks = breaks, plot = FALSE)
+cut <- cut(h$breaks, c(NSmallChild.CI[1], NSmallChild.CI[2]))
+plot(h, 
+     col = cut, 
+     main = "Draws of NSmallChild",
+     xlab = "Value")
+abline(v = NSmallChild.CI[1], col = rgb(1, 0, 0, 1))
+abline(v = NSmallChild.CI[2], col = rgb(1, 0, 0, 1))
+
+# c)
+
+# Functions
+sigmoid <- function(x) {
+  return (exp(x) / (1 + exp(x)))
+}
+
+drawPredDist <- function(βmode, negInvHess, y, nDraws) {
+  beta_draws <- rmvnorm(n = nDraws,
+                        mean = βmode,
+                        sigma = negInvHess) # Draw from posterior beta distribution
+  
+  return (sigmoid(beta_draws %*% y))
+}
+
+# Setup
+target <- c(1, 10, 8, 10, (10/10)^2, 40, 1, 1) # Target woman covariates
+pred <- numeric() # Vector to collect results
+nDraws <- 10000 # No. of draws
+
+# Distribution of logistic regression of target
+pred_work <- drawPredDist(βmode = β.mode, 
+                      negInvHess = β.hessian.neg.inv,
+                      y = target,
+                      nDraws = nDraws)
+
+# Histogram of logistic regression
+hist(pred_work, breaks=100)
+
+# ~99.5% of the values are below 0.5.
+# The data is indicating that the target woman doesn't work.
+percent_below_05 <- sum(ifelse(pred_work < 0.5, 1, 0))/length(pred_work)
+
