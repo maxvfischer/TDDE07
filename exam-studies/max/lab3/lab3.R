@@ -1,4 +1,26 @@
-########################## Lab3 ##########################
+########################## Lab 3 ##########################
+## Meta-info
+# Gibbs sampling
+# MCMC
+# Mixure normal models
+# STAN
+# Credible interval
+# Effective samples
+
+# Task 1: Normal model, mixture of normal model with semi-conjugate prior
+# a) Implement Gibbs sampler that simulate from a joint posterior. Data is normal
+# Evaluate Gibbs model graphically
+# b) Implement Gibbs sampler that simulates form a joint posterior when mixture normal models
+# Evaluate convergance of model
+
+# Task 2: Time series models in Stan
+# a) Write a function in R that simulates data from given AR(1)-process
+# b) Treat µ, φ and σ2 as unknowns and estimate them using MCMC. 
+# Report credible interval and effective samples
+# c) Same as a) and b) but with new data
+# d) Change σ2 to formative prior
+
+#####################################################################################################
 
 ############# Task 1 #############
 # rainfall.dat:
@@ -420,4 +442,4 @@ lines(CI_upper, col = rgb(0, 1, 0, 1)) # Plot upper Credible interval
 # Histogram
 hist(log(mean_stan), breaks = 200)
 
-     
+stitch(script="lab3.R", system.file("misc", "knitr-template.Rhtml", package="knitr"))

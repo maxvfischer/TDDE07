@@ -1,0 +1,1712 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style type="text/css">
+.knitr .inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.rimage .left {
+  text-align: left;
+}
+.rimage .right {
+  text-align: right;
+}
+.rimage .center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+  <script src="https://yihui.name/media/js/center-images.js"></script>
+  <title>\title{\title{}}</title>
+</head>
+<body>
+
+  <p>This report is automatically generated with the R
+    package <a href="https://yihui.name/knitr/"><strong>knitr</strong></a>
+    (version <code class="knitr inline">1.18</code>)
+    .</p>
+
+<div class="chunk" id="auto-report"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">########################## Lab 3 ##########################</span>
+<span class="hl com">## Meta-info</span>
+<span class="hl com"># Gibbs sampling</span>
+<span class="hl com"># MCMC</span>
+<span class="hl com"># Mixure normal models</span>
+<span class="hl com"># STAN</span>
+<span class="hl com"># Credible interval</span>
+<span class="hl com"># Effective samples</span>
+
+<span class="hl com"># Task 1: Normal model, mixture of normal model with semi-conjugate prior</span>
+<span class="hl com"># a) Implement Gibbs sampler that simulate from a joint posterior. Data is normal</span>
+<span class="hl com"># Evaluate Gibbs model graphically</span>
+<span class="hl com"># b) Implement Gibbs sampler that simulates form a joint posterior when mixture normal models</span>
+<span class="hl com"># Evaluate convergance of model</span>
+
+<span class="hl com"># Task 2: Time series models in Stan</span>
+<span class="hl com"># a) Write a function in R that simulates data from given AR(1)-process</span>
+<span class="hl com"># b) Treat µ, φ and σ2 as unknowns and estimate them using MCMC. </span>
+<span class="hl com"># Report credible interval and effective samples</span>
+<span class="hl com"># c) Same as a) and b) but with new data</span>
+<span class="hl com"># d) Change σ2 to formative prior</span>
+
+<span class="hl com">#####################################################################################################</span>
+
+<span class="hl com">############# Task 1 #############</span>
+<span class="hl com"># rainfall.dat:</span>
+<span class="hl com"># Daily recordings of percipitation from 1948 to 1983 (rain or snow in units of 1/100 inch,</span>
+<span class="hl com"># zero recordings are excluded).</span>
+
+<span class="hl std">X</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">read.table</span><span class="hl std">(</span><span class="hl str">&quot;rainfall.dat&quot;</span><span class="hl std">)</span>
+
+<span class="hl com"># a)</span>
+<span class="hl com"># Assume: y_1, ..., y_n | µ, σ2 ~ N(µ, σ2), (iid), µ and σ2 are unknown</span>
+<span class="hl com">#</span>
+<span class="hl com"># Prior:</span>
+<span class="hl com"># µ ~ N(µ0, τ0_2)</span>
+<span class="hl com"># σ2 ~ Inv-X(v0, σ0_2)</span>
+<span class="hl com">#</span>
+<span class="hl com"># Posterior:</span>
+<span class="hl com"># µ | σ2, y ~ N(µn, taun_2)</span>
+<span class="hl com"># σ2 | µ, y ~ Inv-X[ vn, (v0 * σ0_2 + sum[ (y_i - µ)^2 ]) / (n + v0) ]</span>
+
+<span class="hl com"># Function</span>
+<span class="hl std">scal_inv_schsq</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">vn</span><span class="hl std">,</span> <span class="hl kwc">s2</span><span class="hl std">) {</span>
+  <span class="hl std">X</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rchisq</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">df</span> <span class="hl std">= vn)</span>
+  <span class="hl std">draw</span> <span class="hl kwb">&lt;-</span> <span class="hl std">vn</span><span class="hl opt">*</span><span class="hl std">s2</span><span class="hl opt">/</span><span class="hl std">X</span>
+  <span class="hl kwd">return</span> <span class="hl std">(draw)</span>
+<span class="hl std">}</span>
+
+<span class="hl com"># Prior</span>
+<span class="hl std">µ0</span> <span class="hl kwb">&lt;-</span> <span class="hl num">30</span>
+<span class="hl std">τ0_2</span> <span class="hl kwb">&lt;-</span> <span class="hl num">1500</span>
+<span class="hl std">v0</span> <span class="hl kwb">&lt;-</span> <span class="hl num">40</span>
+<span class="hl std">vn</span> <span class="hl kwb">&lt;-</span> <span class="hl std">v0</span> <span class="hl opt">+</span> <span class="hl std">n</span>
+<span class="hl std">σ0_2</span> <span class="hl kwb">&lt;-</span> <span class="hl num">100</span>
+
+<span class="hl com"># Setup</span>
+<span class="hl std">nDraws</span> <span class="hl kwb">=</span> <span class="hl num">10000</span>
+<span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dim</span><span class="hl std">(X)[</span><span class="hl num">1</span><span class="hl std">]</span>
+<span class="hl std">sigma2.samples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">numeric</span><span class="hl std">()</span>
+<span class="hl std">sigma2.sample</span> <span class="hl kwb">&lt;-</span> <span class="hl std">σ0_2</span>
+<span class="hl std">mu.samples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">numeric</span><span class="hl std">()</span>
+<span class="hl std">mu.sample</span> <span class="hl kwb">&lt;-</span> <span class="hl std">µ0</span>
+<span class="hl std">X.mean</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">mean</span><span class="hl std">(X[,</span><span class="hl num">1</span><span class="hl std">])</span>
+<span class="hl std">w_vec</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">numeric</span><span class="hl std">()</span>
+
+<span class="hl com"># Loop doing Gibbs sampling</span>
+<span class="hl kwa">for</span> <span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nDraws) {</span>
+  <span class="hl std">w</span> <span class="hl kwb">&lt;-</span> <span class="hl std">(n</span><span class="hl opt">/</span><span class="hl std">sigma2.sample)</span><span class="hl opt">/</span><span class="hl std">( (n</span><span class="hl opt">/</span><span class="hl std">sigma2.sample)</span> <span class="hl opt">+</span> <span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">/</span><span class="hl std">τ0_2) )</span> <span class="hl com"># Calcuate weights</span>
+  <span class="hl std">w_vec[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">w</span> <span class="hl com"># Insert weights into vector</span>
+  <span class="hl std">µn</span> <span class="hl kwb">&lt;-</span> <span class="hl std">w</span> <span class="hl opt">*</span> <span class="hl std">X.mean</span> <span class="hl opt">+</span> <span class="hl std">(</span><span class="hl num">1</span> <span class="hl opt">-</span> <span class="hl std">w)</span><span class="hl opt">*</span><span class="hl std">µ0</span> <span class="hl com"># Calculate my_n</span>
+
+  <span class="hl std">taun_2</span> <span class="hl kwb">&lt;-</span> <span class="hl num">1</span><span class="hl opt">/</span><span class="hl std">( (n</span><span class="hl opt">/</span><span class="hl std">sigma2.sample)</span> <span class="hl opt">+</span> <span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">/</span><span class="hl std">τ0_2))</span>
+
+  <span class="hl std">mu.sample</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rnorm</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span>
+                        <span class="hl kwc">mean</span> <span class="hl std">= µn,</span>
+                        <span class="hl kwc">sd</span> <span class="hl std">= taun_2)</span> <span class="hl com"># Calculate sample of mu</span>
+  <span class="hl std">mu.samples[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">mu.sample</span>
+
+  <span class="hl com"># Calculate sample of sigma2 by inserting sample of mu</span>
+  <span class="hl std">sigma2.sample</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">scal_inv_schsq</span><span class="hl std">(vn, ((v0</span><span class="hl opt">*</span><span class="hl std">σ0_2</span> <span class="hl opt">+</span> <span class="hl kwd">sum</span><span class="hl std">((X</span> <span class="hl opt">-</span> <span class="hl std">mu.sample)</span><span class="hl opt">^</span><span class="hl num">2</span><span class="hl std">))</span> <span class="hl opt">/</span> <span class="hl std">(n</span> <span class="hl opt">+</span> <span class="hl std">v0)))</span>
+  <span class="hl std">sigma2.samples[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">sigma2.sample</span>
+<span class="hl std">}</span>
+
+<span class="hl com"># Hist and plots of mu and sigma2 samples.</span>
+<span class="hl kwd">hist</span><span class="hl std">(mu.samples)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab3-Rhtmlauto-report-1.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl kwd">hist</span><span class="hl std">(sigma2.samples)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab3-Rhtmlauto-report-2.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl kwd">plot</span><span class="hl std">(sigma2.samples,</span> <span class="hl kwc">type</span><span class="hl std">=</span><span class="hl str">'l'</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab3-Rhtmlauto-report-3.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl kwd">plot</span><span class="hl std">(mu.samples,</span> <span class="hl kwc">type</span><span class="hl std">=</span><span class="hl str">'l'</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab3-Rhtmlauto-report-4.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># b) ############################## FEL NÅGONSTANS ##############################</span>
+<span class="hl com"># Daily precipitation follows an iid two-component mixture of normal distributions</span>
+<span class="hl com"># p(y_i | µ, σ2, π) = π * N(y_i | µ1, σ1_2) + (1 - π) * N(y_i | µ2, σ2_2)</span>
+<span class="hl com"># µ = (µ1, µ2)</span>
+<span class="hl com"># σ2 = (σ1_2, σ2_2)</span>
+<span class="hl com">#</span>
+<span class="hl com"># π ~ Beta(α, β)</span>
+<span class="hl com">#</span>
+<span class="hl com"># Gibbs sampling</span>
+<span class="hl com"># π | I, x ~ Beta (α1 + n1, α2 + n2)</span>
+<span class="hl com">#</span>
+<span class="hl com"># Model 1:</span>
+<span class="hl com">#     σ1_2 | I, x ~ Inv-X(Vn1, σn1_2)</span>
+<span class="hl com">#     µ1 | I, σ1_2, x ~ N(µn1, σ1_2/κn1)</span>
+<span class="hl com">#</span>
+<span class="hl com"># Model 2:</span>
+<span class="hl com">#     σ2_2 | I, x ~ Inv-X(Vn_2, σn2_2)</span>
+<span class="hl com">#     µ2 | I, σ2_2, x ~ N(µn2, σ2_2/κn1)</span>
+<span class="hl com">#     I | π, µ1, σ1_2, µ2, σ2_2, x ~ Bern(θ_i), i = 1, ..., n</span>
+
+<span class="hl com"># Setup</span>
+<span class="hl std">nDraws</span> <span class="hl kwb">&lt;-</span> <span class="hl num">200</span>
+<span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dim</span><span class="hl std">(X)[</span><span class="hl num">1</span><span class="hl std">]</span>
+
+<span class="hl com">## Priors</span>
+
+<span class="hl com"># Mu</span>
+<span class="hl std">µ0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">30</span><span class="hl std">,</span> <span class="hl num">30</span><span class="hl std">)</span>
+<span class="hl std">w</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0.5</span><span class="hl std">,</span> <span class="hl num">0.5</span><span class="hl std">)</span>
+<span class="hl std">kappa0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">10</span><span class="hl std">,</span> <span class="hl num">10</span><span class="hl std">)</span>
+<span class="hl std">tao0_2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">40</span><span class="hl std">,</span> <span class="hl num">40</span><span class="hl std">)</span>
+<span class="hl std">µ.sample</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">30</span><span class="hl std">,</span> <span class="hl num">30</span><span class="hl std">)</span>
+
+<span class="hl com"># Sigma2</span>
+<span class="hl std">v0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">40</span><span class="hl std">,</span> <span class="hl num">40</span><span class="hl std">)</span>
+<span class="hl std">σ0_2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1500</span><span class="hl std">,</span> <span class="hl num">1500</span><span class="hl std">)</span>
+<span class="hl std">σ2.sample</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1500</span><span class="hl std">,</span> <span class="hl num">1500</span><span class="hl std">)</span>
+
+<span class="hl std">µ.samples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwc">data</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span>
+                    <span class="hl kwc">nrow</span> <span class="hl std">= nDraws,</span>
+                    <span class="hl kwc">ncol</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">)</span>
+<span class="hl std">σ2.samples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwc">data</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span>
+                     <span class="hl kwc">nrow</span> <span class="hl std">= nDraws,</span>
+                     <span class="hl kwc">ncol</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">)</span>
+
+<span class="hl com"># Pi</span>
+<span class="hl std">π</span> <span class="hl kwb">&lt;-</span> <span class="hl num">0.5</span>
+<span class="hl std">alphas</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">10</span><span class="hl std">,</span> <span class="hl num">10</span><span class="hl std">)</span>
+
+<span class="hl std">thetas</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">numeric</span><span class="hl std">()</span>
+
+<span class="hl std">nModels</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(n</span><span class="hl opt">*</span><span class="hl std">π, n</span><span class="hl opt">*</span><span class="hl std">π)</span>
+
+<span class="hl kwa">for</span> <span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nDraws) {</span>
+  <span class="hl kwd">print</span><span class="hl std">(</span><span class="hl str">&quot;....&quot;</span><span class="hl std">)</span>
+  <span class="hl kwd">print</span><span class="hl std">(i)</span>
+  <span class="hl kwd">print</span><span class="hl std">(nModels)</span>
+  <span class="hl com"># Calculate theta for I ~ Bern(theta)</span>
+  <span class="hl kwa">for</span> <span class="hl std">(j</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n) {</span>
+    <span class="hl std">dnorm_model1</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dnorm</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">= X[j,</span> <span class="hl num">1</span><span class="hl std">],</span> <span class="hl kwc">mean</span> <span class="hl std">= µ.sample[</span><span class="hl num">1</span><span class="hl std">],</span> <span class="hl kwc">sd</span> <span class="hl std">= σ2.sample[</span><span class="hl num">1</span><span class="hl std">])</span>
+    <span class="hl std">dnorm_model2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dnorm</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">= X[j,</span> <span class="hl num">1</span><span class="hl std">],</span> <span class="hl kwc">mean</span> <span class="hl std">= µ.sample[</span><span class="hl num">2</span><span class="hl std">],</span> <span class="hl kwc">sd</span> <span class="hl std">= σ2.sample[</span><span class="hl num">2</span><span class="hl std">])</span>
+    <span class="hl std">thetas[j]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">(</span><span class="hl num">1</span> <span class="hl opt">-</span> <span class="hl std">π)</span><span class="hl opt">*</span><span class="hl std">dnorm_model2</span><span class="hl opt">/</span><span class="hl std">(π</span><span class="hl opt">*</span><span class="hl std">dnorm_model1</span> <span class="hl opt">+</span> <span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">-</span><span class="hl std">π)</span><span class="hl opt">*</span><span class="hl std">dnorm_model2)</span>
+  <span class="hl std">}</span>
+
+  <span class="hl com"># Sample I for each data point</span>
+  <span class="hl std">I</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rbinom</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">= n,</span>
+              <span class="hl kwc">size</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span>
+              <span class="hl kwc">prob</span> <span class="hl std">= thetas)</span>
+
+  <span class="hl com"># Create matrix with col1 = 1 if data was assigned to model1, </span>
+  <span class="hl com"># col2 = 1 of data was assigned to model2</span>
+  <span class="hl std">X.I</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwc">data</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span>
+                <span class="hl kwc">nrow</span> <span class="hl std">= n,</span>
+                <span class="hl kwc">ncol</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">)</span>
+  <span class="hl std">X.I[</span><span class="hl kwd">which</span><span class="hl std">(I</span> <span class="hl opt">==</span> <span class="hl num">0</span><span class="hl std">),</span> <span class="hl num">1</span><span class="hl std">]</span> <span class="hl kwb">&lt;-</span> <span class="hl num">1</span>
+  <span class="hl std">X.I[</span><span class="hl kwd">which</span><span class="hl std">(I</span> <span class="hl opt">==</span> <span class="hl num">1</span><span class="hl std">),</span> <span class="hl num">2</span><span class="hl std">]</span> <span class="hl kwb">&lt;-</span> <span class="hl num">1</span>
+
+  <span class="hl com"># Sum X.I[, 1] and X.I[, 2] to find out how many data points that are assigned to each model</span>
+  <span class="hl std">n1</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sum</span><span class="hl std">(X.I[,</span> <span class="hl num">1</span><span class="hl std">])</span>
+  <span class="hl std">n2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sum</span><span class="hl std">(X.I[,</span> <span class="hl num">2</span><span class="hl std">])</span>
+  <span class="hl std">nModels</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(n1, n2)</span> <span class="hl com"># No. of datapoints in each odel</span>
+
+  <span class="hl com"># Sample π</span>
+  <span class="hl std">π</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rbeta</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">shape1</span> <span class="hl std">= nModels[</span><span class="hl num">1</span><span class="hl std">]</span> <span class="hl opt">*</span> <span class="hl std">alphas[</span><span class="hl num">1</span><span class="hl std">],</span> <span class="hl kwc">shape2</span> <span class="hl std">= nModels[</span><span class="hl num">2</span><span class="hl std">]</span> <span class="hl opt">*</span> <span class="hl std">alphas[</span><span class="hl num">2</span><span class="hl std">])</span>
+
+  <span class="hl com"># Calculate mean of each model. This is done my only calculating the mean of the data points</span>
+  <span class="hl com"># included in each model</span>
+  <span class="hl std">X.mean</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl kwd">mean</span><span class="hl std">(X[</span><span class="hl kwd">which</span><span class="hl std">(I</span> <span class="hl opt">==</span> <span class="hl num">0</span><span class="hl std">),</span> <span class="hl num">1</span><span class="hl std">]),</span> <span class="hl kwd">mean</span><span class="hl std">(X[</span><span class="hl kwd">which</span><span class="hl std">(I</span> <span class="hl opt">==</span> <span class="hl num">1</span><span class="hl std">),</span> <span class="hl num">1</span><span class="hl std">]))</span>
+
+  <span class="hl com"># Calculate my_n</span>
+  <span class="hl std">w</span> <span class="hl kwb">&lt;-</span> <span class="hl std">(nModels</span><span class="hl opt">/</span><span class="hl std">σ2.sample)</span><span class="hl opt">/</span><span class="hl std">((nModels</span><span class="hl opt">/</span><span class="hl std">σ2.sample)</span> <span class="hl opt">+</span> <span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">/</span><span class="hl std">tao0_2))</span>
+  <span class="hl std">myn</span> <span class="hl kwb">&lt;-</span> <span class="hl std">w</span><span class="hl opt">*</span><span class="hl std">µ0</span> <span class="hl opt">+</span> <span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">-</span><span class="hl std">w)</span><span class="hl opt">*</span><span class="hl std">X.mean</span>
+
+  <span class="hl com"># Calculate tao_n^2</span>
+  <span class="hl std">taon_2</span> <span class="hl kwb">&lt;-</span> <span class="hl std">((nModels</span><span class="hl opt">/</span><span class="hl std">σ2.sample)</span> <span class="hl opt">+</span> <span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">/</span><span class="hl std">tao0_2))</span>
+
+  <span class="hl com"># Sample µ</span>
+  <span class="hl std">µ.sample[</span><span class="hl num">1</span><span class="hl std">]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rnorm</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span>
+                       <span class="hl kwc">mean</span> <span class="hl std">= myn[</span><span class="hl num">1</span><span class="hl std">],</span>
+                       <span class="hl kwc">sd</span> <span class="hl std">=</span> <span class="hl kwd">sqrt</span><span class="hl std">(taon_2))</span>
+  <span class="hl std">µ.sample[</span><span class="hl num">2</span><span class="hl std">]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rnorm</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span>
+                       <span class="hl kwc">mean</span> <span class="hl std">= myn[</span><span class="hl num">2</span><span class="hl std">],</span>
+                       <span class="hl kwc">sd</span> <span class="hl std">=</span> <span class="hl kwd">sqrt</span><span class="hl std">(taon_2))</span>
+
+  <span class="hl std">µ.samples[i,]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">µ.sample</span>
+
+  <span class="hl com"># Calculate vn</span>
+  <span class="hl std">vn</span> <span class="hl kwb">&lt;-</span> <span class="hl std">v0</span> <span class="hl opt">+</span> <span class="hl std">nModels</span>
+
+  <span class="hl com"># Calculate sigma2_n</span>
+  <span class="hl std">sq_sum_of_diff1</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sum</span><span class="hl std">( (X[</span><span class="hl kwd">which</span><span class="hl std">(I</span> <span class="hl opt">==</span> <span class="hl num">0</span><span class="hl std">), ]</span> <span class="hl opt">-</span> <span class="hl std">µ.sample[</span><span class="hl num">1</span><span class="hl std">])</span><span class="hl opt">^</span><span class="hl num">2</span> <span class="hl std">)</span>
+  <span class="hl std">sq_sum_of_diff2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sum</span><span class="hl std">( (X[</span><span class="hl kwd">which</span><span class="hl std">(I</span> <span class="hl opt">==</span> <span class="hl num">1</span><span class="hl std">), ]</span> <span class="hl opt">-</span> <span class="hl std">µ.sample[</span><span class="hl num">2</span><span class="hl std">])</span><span class="hl opt">^</span><span class="hl num">2</span> <span class="hl std">)</span>
+  <span class="hl std">sq_sum_of_diff</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(sq_sum_of_diff1, sq_sum_of_diff2)</span>
+  <span class="hl std">σn_2</span> <span class="hl kwb">&lt;-</span> <span class="hl std">(v0</span><span class="hl opt">*</span><span class="hl std">σ0_2</span> <span class="hl opt">+</span> <span class="hl std">sq_sum_of_diff)</span><span class="hl opt">/</span><span class="hl std">(nModels</span> <span class="hl opt">+</span> <span class="hl std">v0)</span>
+
+  <span class="hl com"># Sample σ2</span>
+  <span class="hl std">σ2.sample</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">scal_inv_schsq</span><span class="hl std">(vn, σn_2)</span>
+  <span class="hl std">σ2.samples[i, ]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">σ2.sample</span>
+<span class="hl std">}</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] &quot;....&quot;
+## [1] 1
+## [1] 3460 3460
+## [1] &quot;....&quot;
+## [1] 2
+## [1] 3450 3470
+## [1] &quot;....&quot;
+## [1] 3
+## [1] 3565 3355
+## [1] &quot;....&quot;
+## [1] 4
+## [1] 3505 3415
+## [1] &quot;....&quot;
+## [1] 5
+## [1] 3353 3567
+## [1] &quot;....&quot;
+## [1] 6
+## [1] 3518 3402
+## [1] &quot;....&quot;
+## [1] 7
+## [1] 3211 3709
+## [1] &quot;....&quot;
+## [1] 8
+## [1] 3645 3275
+## [1] &quot;....&quot;
+## [1] 9
+## [1] 3779 3141
+## [1] &quot;....&quot;
+## [1] 10
+## [1] 3346 3574
+## [1] &quot;....&quot;
+## [1] 11
+## [1] 3269 3651
+## [1] &quot;....&quot;
+## [1] 12
+## [1] 3551 3369
+## [1] &quot;....&quot;
+## [1] 13
+## [1] 3642 3278
+## [1] &quot;....&quot;
+## [1] 14
+## [1] 3536 3384
+## [1] &quot;....&quot;
+## [1] 15
+## [1] 3401 3519
+## [1] &quot;....&quot;
+## [1] 16
+## [1] 3312 3608
+## [1] &quot;....&quot;
+## [1] 17
+## [1] 3456 3464
+## [1] &quot;....&quot;
+## [1] 18
+## [1] 3516 3404
+## [1] &quot;....&quot;
+## [1] 19
+## [1] 3648 3272
+## [1] &quot;....&quot;
+## [1] 20
+## [1] 3385 3535
+## [1] &quot;....&quot;
+## [1] 21
+## [1] 3566 3354
+## [1] &quot;....&quot;
+## [1] 22
+## [1] 3658 3262
+## [1] &quot;....&quot;
+## [1] 23
+## [1] 3325 3595
+## [1] &quot;....&quot;
+## [1] 24
+## [1] 3629 3291
+## [1] &quot;....&quot;
+## [1] 25
+## [1] 3180 3740
+## [1] &quot;....&quot;
+## [1] 26
+## [1] 3120 3800
+## [1] &quot;....&quot;
+## [1] 27
+## [1] 3162 3758
+## [1] &quot;....&quot;
+## [1] 28
+## [1] 3303 3617
+## [1] &quot;....&quot;
+## [1] 29
+## [1] 3499 3421
+## [1] &quot;....&quot;
+## [1] 30
+## [1] 3413 3507
+## [1] &quot;....&quot;
+## [1] 31
+## [1] 3643 3277
+## [1] &quot;....&quot;
+## [1] 32
+## [1] 3501 3419
+## [1] &quot;....&quot;
+## [1] 33
+## [1] 3726 3194
+## [1] &quot;....&quot;
+## [1] 34
+## [1] 3557 3363
+## [1] &quot;....&quot;
+## [1] 35
+## [1] 3493 3427
+## [1] &quot;....&quot;
+## [1] 36
+## [1] 3401 3519
+## [1] &quot;....&quot;
+## [1] 37
+## [1] 3272 3648
+## [1] &quot;....&quot;
+## [1] 38
+## [1] 3407 3513
+## [1] &quot;....&quot;
+## [1] 39
+## [1] 3392 3528
+## [1] &quot;....&quot;
+## [1] 40
+## [1] 3524 3396
+## [1] &quot;....&quot;
+## [1] 41
+## [1] 3404 3516
+## [1] &quot;....&quot;
+## [1] 42
+## [1] 3289 3631
+## [1] &quot;....&quot;
+## [1] 43
+## [1] 3105 3815
+## [1] &quot;....&quot;
+## [1] 44
+## [1] 3557 3363
+## [1] &quot;....&quot;
+## [1] 45
+## [1] 3489 3431
+## [1] &quot;....&quot;
+## [1] 46
+## [1] 3524 3396
+## [1] &quot;....&quot;
+## [1] 47
+## [1] 3274 3646
+## [1] &quot;....&quot;
+## [1] 48
+## [1] 3562 3358
+## [1] &quot;....&quot;
+## [1] 49
+## [1] 3559 3361
+## [1] &quot;....&quot;
+## [1] 50
+## [1] 3428 3492
+## [1] &quot;....&quot;
+## [1] 51
+## [1] 3307 3613
+## [1] &quot;....&quot;
+## [1] 52
+## [1] 3494 3426
+## [1] &quot;....&quot;
+## [1] 53
+## [1] 3273 3647
+## [1] &quot;....&quot;
+## [1] 54
+## [1] 3153 3767
+## [1] &quot;....&quot;
+## [1] 55
+## [1] 3539 3381
+## [1] &quot;....&quot;
+## [1] 56
+## [1] 3291 3629
+## [1] &quot;....&quot;
+## [1] 57
+## [1] 3419 3501
+## [1] &quot;....&quot;
+## [1] 58
+## [1] 3360 3560
+## [1] &quot;....&quot;
+## [1] 59
+## [1] 3335 3585
+## [1] &quot;....&quot;
+## [1] 60
+## [1] 3495 3425
+## [1] &quot;....&quot;
+## [1] 61
+## [1] 3545 3375
+## [1] &quot;....&quot;
+## [1] 62
+## [1] 3518 3402
+## [1] &quot;....&quot;
+## [1] 63
+## [1] 3262 3658
+## [1] &quot;....&quot;
+## [1] 64
+## [1] 3484 3436
+## [1] &quot;....&quot;
+## [1] 65
+## [1] 3441 3479
+## [1] &quot;....&quot;
+## [1] 66
+## [1] 3353 3567
+## [1] &quot;....&quot;
+## [1] 67
+## [1] 3448 3472
+## [1] &quot;....&quot;
+## [1] 68
+## [1] 3354 3566
+## [1] &quot;....&quot;
+## [1] 69
+## [1] 3744 3176
+## [1] &quot;....&quot;
+## [1] 70
+## [1] 3492 3428
+## [1] &quot;....&quot;
+## [1] 71
+## [1] 3427 3493
+## [1] &quot;....&quot;
+## [1] 72
+## [1] 3662 3258
+## [1] &quot;....&quot;
+## [1] 73
+## [1] 3386 3534
+## [1] &quot;....&quot;
+## [1] 74
+## [1] 3313 3607
+## [1] &quot;....&quot;
+## [1] 75
+## [1] 3600 3320
+## [1] &quot;....&quot;
+## [1] 76
+## [1] 3545 3375
+## [1] &quot;....&quot;
+## [1] 77
+## [1] 3255 3665
+## [1] &quot;....&quot;
+## [1] 78
+## [1] 3379 3541
+## [1] &quot;....&quot;
+## [1] 79
+## [1] 3702 3218
+## [1] &quot;....&quot;
+## [1] 80
+## [1] 3335 3585
+## [1] &quot;....&quot;
+## [1] 81
+## [1] 3228 3692
+## [1] &quot;....&quot;
+## [1] 82
+## [1] 3658 3262
+## [1] &quot;....&quot;
+## [1] 83
+## [1] 3525 3395
+## [1] &quot;....&quot;
+## [1] 84
+## [1] 3289 3631
+## [1] &quot;....&quot;
+## [1] 85
+## [1] 3342 3578
+## [1] &quot;....&quot;
+## [1] 86
+## [1] 3776 3144
+## [1] &quot;....&quot;
+## [1] 87
+## [1] 3513 3407
+## [1] &quot;....&quot;
+## [1] 88
+## [1] 3321 3599
+## [1] &quot;....&quot;
+## [1] 89
+## [1] 3412 3508
+## [1] &quot;....&quot;
+## [1] 90
+## [1] 3344 3576
+## [1] &quot;....&quot;
+## [1] 91
+## [1] 3422 3498
+## [1] &quot;....&quot;
+## [1] 92
+## [1] 3577 3343
+## [1] &quot;....&quot;
+## [1] 93
+## [1] 3280 3640
+## [1] &quot;....&quot;
+## [1] 94
+## [1] 3528 3392
+## [1] &quot;....&quot;
+## [1] 95
+## [1] 3489 3431
+## [1] &quot;....&quot;
+## [1] 96
+## [1] 3623 3297
+## [1] &quot;....&quot;
+## [1] 97
+## [1] 3731 3189
+## [1] &quot;....&quot;
+## [1] 98
+## [1] 3065 3855
+## [1] &quot;....&quot;
+## [1] 99
+## [1] 3495 3425
+## [1] &quot;....&quot;
+## [1] 100
+## [1] 3271 3649
+## [1] &quot;....&quot;
+## [1] 101
+## [1] 3668 3252
+## [1] &quot;....&quot;
+## [1] 102
+## [1] 3546 3374
+## [1] &quot;....&quot;
+## [1] 103
+## [1] 3483 3437
+## [1] &quot;....&quot;
+## [1] 104
+## [1] 3462 3458
+## [1] &quot;....&quot;
+## [1] 105
+## [1] 3653 3267
+## [1] &quot;....&quot;
+## [1] 106
+## [1] 3364 3556
+## [1] &quot;....&quot;
+## [1] 107
+## [1] 3426 3494
+## [1] &quot;....&quot;
+## [1] 108
+## [1] 3570 3350
+## [1] &quot;....&quot;
+## [1] 109
+## [1] 3485 3435
+## [1] &quot;....&quot;
+## [1] 110
+## [1] 3766 3154
+## [1] &quot;....&quot;
+## [1] 111
+## [1] 3466 3454
+## [1] &quot;....&quot;
+## [1] 112
+## [1] 3339 3581
+## [1] &quot;....&quot;
+## [1] 113
+## [1] 3339 3581
+## [1] &quot;....&quot;
+## [1] 114
+## [1] 3789 3131
+## [1] &quot;....&quot;
+## [1] 115
+## [1] 3314 3606
+## [1] &quot;....&quot;
+## [1] 116
+## [1] 3026 3894
+## [1] &quot;....&quot;
+## [1] 117
+## [1] 3588 3332
+## [1] &quot;....&quot;
+## [1] 118
+## [1] 3397 3523
+## [1] &quot;....&quot;
+## [1] 119
+## [1] 3287 3633
+## [1] &quot;....&quot;
+## [1] 120
+## [1] 3456 3464
+## [1] &quot;....&quot;
+## [1] 121
+## [1] 3535 3385
+## [1] &quot;....&quot;
+## [1] 122
+## [1] 3387 3533
+## [1] &quot;....&quot;
+## [1] 123
+## [1] 3397 3523
+## [1] &quot;....&quot;
+## [1] 124
+## [1] 3422 3498
+## [1] &quot;....&quot;
+## [1] 125
+## [1] 3260 3660
+## [1] &quot;....&quot;
+## [1] 126
+## [1] 3408 3512
+## [1] &quot;....&quot;
+## [1] 127
+## [1] 3451 3469
+## [1] &quot;....&quot;
+## [1] 128
+## [1] 3504 3416
+## [1] &quot;....&quot;
+## [1] 129
+## [1] 3258 3662
+## [1] &quot;....&quot;
+## [1] 130
+## [1] 3545 3375
+## [1] &quot;....&quot;
+## [1] 131
+## [1] 3550 3370
+## [1] &quot;....&quot;
+## [1] 132
+## [1] 3434 3486
+## [1] &quot;....&quot;
+## [1] 133
+## [1] 3346 3574
+## [1] &quot;....&quot;
+## [1] 134
+## [1] 3295 3625
+## [1] &quot;....&quot;
+## [1] 135
+## [1] 3461 3459
+## [1] &quot;....&quot;
+## [1] 136
+## [1] 3316 3604
+## [1] &quot;....&quot;
+## [1] 137
+## [1] 3515 3405
+## [1] &quot;....&quot;
+## [1] 138
+## [1] 3178 3742
+## [1] &quot;....&quot;
+## [1] 139
+## [1] 3585 3335
+## [1] &quot;....&quot;
+## [1] 140
+## [1] 3700 3220
+## [1] &quot;....&quot;
+## [1] 141
+## [1] 3516 3404
+## [1] &quot;....&quot;
+## [1] 142
+## [1] 3396 3524
+## [1] &quot;....&quot;
+## [1] 143
+## [1] 3392 3528
+## [1] &quot;....&quot;
+## [1] 144
+## [1] 3182 3738
+## [1] &quot;....&quot;
+## [1] 145
+## [1] 3479 3441
+## [1] &quot;....&quot;
+## [1] 146
+## [1] 3615 3305
+## [1] &quot;....&quot;
+## [1] 147
+## [1] 3445 3475
+## [1] &quot;....&quot;
+## [1] 148
+## [1] 3183 3737
+## [1] &quot;....&quot;
+## [1] 149
+## [1] 3597 3323
+## [1] &quot;....&quot;
+## [1] 150
+## [1] 3263 3657
+## [1] &quot;....&quot;
+## [1] 151
+## [1] 3620 3300
+## [1] &quot;....&quot;
+## [1] 152
+## [1] 3542 3378
+## [1] &quot;....&quot;
+## [1] 153
+## [1] 3822 3098
+## [1] &quot;....&quot;
+## [1] 154
+## [1] 3756 3164
+## [1] &quot;....&quot;
+## [1] 155
+## [1] 3354 3566
+## [1] &quot;....&quot;
+## [1] 156
+## [1] 3348 3572
+## [1] &quot;....&quot;
+## [1] 157
+## [1] 3323 3597
+## [1] &quot;....&quot;
+## [1] 158
+## [1] 3536 3384
+## [1] &quot;....&quot;
+## [1] 159
+## [1] 3372 3548
+## [1] &quot;....&quot;
+## [1] 160
+## [1] 3245 3675
+## [1] &quot;....&quot;
+## [1] 161
+## [1] 3552 3368
+## [1] &quot;....&quot;
+## [1] 162
+## [1] 3384 3536
+## [1] &quot;....&quot;
+## [1] 163
+## [1] 3213 3707
+## [1] &quot;....&quot;
+## [1] 164
+## [1] 3552 3368
+## [1] &quot;....&quot;
+## [1] 165
+## [1] 3728 3192
+## [1] &quot;....&quot;
+## [1] 166
+## [1] 3443 3477
+## [1] &quot;....&quot;
+## [1] 167
+## [1] 3219 3701
+## [1] &quot;....&quot;
+## [1] 168
+## [1] 3586 3334
+## [1] &quot;....&quot;
+## [1] 169
+## [1] 3450 3470
+## [1] &quot;....&quot;
+## [1] 170
+## [1] 3292 3628
+## [1] &quot;....&quot;
+## [1] 171
+## [1] 3395 3525
+## [1] &quot;....&quot;
+## [1] 172
+## [1] 3445 3475
+## [1] &quot;....&quot;
+## [1] 173
+## [1] 3420 3500
+## [1] &quot;....&quot;
+## [1] 174
+## [1] 3504 3416
+## [1] &quot;....&quot;
+## [1] 175
+## [1] 3657 3263
+## [1] &quot;....&quot;
+## [1] 176
+## [1] 3510 3410
+## [1] &quot;....&quot;
+## [1] 177
+## [1] 3567 3353
+## [1] &quot;....&quot;
+## [1] 178
+## [1] 3585 3335
+## [1] &quot;....&quot;
+## [1] 179
+## [1] 3309 3611
+## [1] &quot;....&quot;
+## [1] 180
+## [1] 3288 3632
+## [1] &quot;....&quot;
+## [1] 181
+## [1] 3449 3471
+## [1] &quot;....&quot;
+## [1] 182
+## [1] 3213 3707
+## [1] &quot;....&quot;
+## [1] 183
+## [1] 3496 3424
+## [1] &quot;....&quot;
+## [1] 184
+## [1] 3531 3389
+## [1] &quot;....&quot;
+## [1] 185
+## [1] 3599 3321
+## [1] &quot;....&quot;
+## [1] 186
+## [1] 3638 3282
+## [1] &quot;....&quot;
+## [1] 187
+## [1] 3565 3355
+## [1] &quot;....&quot;
+## [1] 188
+## [1] 3494 3426
+## [1] &quot;....&quot;
+## [1] 189
+## [1] 3468 3452
+## [1] &quot;....&quot;
+## [1] 190
+## [1] 3141 3779
+## [1] &quot;....&quot;
+## [1] 191
+## [1] 3248 3672
+## [1] &quot;....&quot;
+## [1] 192
+## [1] 3222 3698
+## [1] &quot;....&quot;
+## [1] 193
+## [1] 3354 3566
+## [1] &quot;....&quot;
+## [1] 194
+## [1] 3544 3376
+## [1] &quot;....&quot;
+## [1] 195
+## [1] 3505 3415
+## [1] &quot;....&quot;
+## [1] 196
+## [1] 3398 3522
+## [1] &quot;....&quot;
+## [1] 197
+## [1] 3517 3403
+## [1] &quot;....&quot;
+## [1] 198
+## [1] 3668 3252
+## [1] &quot;....&quot;
+## [1] 199
+## [1] 3314 3606
+## [1] &quot;....&quot;
+## [1] 200
+## [1] 3404 3516
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># c) </span>
+
+<span class="hl com">############# Task 2 #############</span>
+
+<span class="hl com"># a) Write a function that simulates from an AR(1)-process:</span>
+<span class="hl com"># x_t = µ + Φ(x_t-1 - µ) + ε_i, ε_i ~ N(0, σ2)</span>
+<span class="hl com">#</span>
+<span class="hl com"># AR(1)-process is stable when -1 &lt;= Φ &lt;= 1</span>
+<span class="hl com"># When Φ is either -1 or 1, the process seems to follow a pattern,</span>
+<span class="hl com"># when Φ is around 0 it seems ot be random. This is reasonable:</span>
+<span class="hl com"># When Φ becomes smaller and smaller, the previous time-series doesn't</span>
+<span class="hl com"># affect the future time-series as much. Instead, the error ε</span>
+<span class="hl com"># will affect the future time-series. As ε is a normally distributed</span>
+<span class="hl com"># error, it will appear to be random.</span>
+
+<span class="hl com"># Function</span>
+<span class="hl std">AR1_process</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">mu</span><span class="hl std">,</span> <span class="hl kwc">sigma2</span><span class="hl std">,</span> <span class="hl kwc">phi</span><span class="hl std">,</span> <span class="hl kwc">T</span><span class="hl std">) {</span>
+  <span class="hl std">X</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">numeric</span><span class="hl std">()</span>
+  <span class="hl std">X[</span><span class="hl num">1</span><span class="hl std">]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">mu</span>
+
+  <span class="hl kwa">for</span> <span class="hl std">(t</span> <span class="hl kwa">in</span> <span class="hl num">2</span><span class="hl opt">:</span><span class="hl std">T) {</span>
+    <span class="hl std">ε</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rnorm</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span>
+               <span class="hl kwc">mean</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span>
+               <span class="hl kwc">sd</span> <span class="hl std">=</span> <span class="hl kwd">sqrt</span><span class="hl std">(sigma2))</span>
+    <span class="hl std">X[t]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">mu</span> <span class="hl opt">+</span> <span class="hl std">phi</span><span class="hl opt">*</span><span class="hl std">(X[t</span><span class="hl opt">-</span><span class="hl num">1</span><span class="hl std">]</span> <span class="hl opt">-</span> <span class="hl std">mu)</span> <span class="hl opt">+</span> <span class="hl std">ε</span>
+  <span class="hl std">}</span>
+  <span class="hl kwd">return</span><span class="hl std">(X)</span>
+<span class="hl std">}</span>
+
+<span class="hl com"># Setup</span>
+<span class="hl std">µ</span> <span class="hl kwb">&lt;-</span> <span class="hl num">10</span>
+<span class="hl std">σ2</span> <span class="hl kwb">&lt;-</span> <span class="hl num">2</span>
+<span class="hl std">T</span> <span class="hl kwb">&lt;-</span> <span class="hl num">200</span>
+<span class="hl std">Φ</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">seq</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0.1</span><span class="hl std">)</span>
+
+<span class="hl std">X</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwc">nrow</span> <span class="hl std">=</span> <span class="hl kwd">length</span><span class="hl std">(Φ),</span>
+             <span class="hl kwc">ncol</span> <span class="hl std">= T)</span>
+
+<span class="hl kwa">for</span> <span class="hl std">(t</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl kwd">length</span><span class="hl std">(Φ)) {</span>
+  <span class="hl std">X[t, ]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">AR1_process</span><span class="hl std">(µ, σ2, Φ[t], T)</span>
+<span class="hl std">}</span>
+
+<span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">4</span><span class="hl std">,</span> <span class="hl num">4</span><span class="hl std">))</span>
+<span class="hl kwa">for</span> <span class="hl std">(t</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl kwd">length</span><span class="hl std">(Φ)) {</span>
+  <span class="hl std">main_legend</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">paste</span><span class="hl std">(</span><span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">&quot;Φ:&quot;</span><span class="hl std">,Φ[t]),</span> <span class="hl kwc">collapse</span><span class="hl std">=</span> <span class="hl str">&quot; &quot;</span><span class="hl std">)</span>
+  <span class="hl kwd">plot</span><span class="hl std">(X[t,],</span>
+       <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">&quot;x_t&quot;</span><span class="hl std">,</span>
+       <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Index: t&quot;</span><span class="hl std">,</span>
+       <span class="hl kwc">main</span> <span class="hl std">= main_legend)</span>
+<span class="hl std">}</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab3-Rhtmlauto-report-5.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># b)</span>
+<span class="hl kwd">library</span><span class="hl std">(rstan)</span>
+<span class="hl com"># Setup</span>
+<span class="hl std">µ</span> <span class="hl kwb">&lt;-</span> <span class="hl num">10</span>
+<span class="hl std">σ2</span> <span class="hl kwb">&lt;-</span> <span class="hl num">2</span>
+<span class="hl std">T</span> <span class="hl kwb">&lt;-</span> <span class="hl num">200</span>
+<span class="hl std">Φ1</span> <span class="hl kwb">&lt;-</span> <span class="hl num">0.3</span>
+<span class="hl std">Φ2</span> <span class="hl kwb">&lt;-</span> <span class="hl num">0.95</span>
+
+<span class="hl com"># AR(1)-processes for each phi.</span>
+<span class="hl com"># Create ground truth dataset</span>
+<span class="hl std">X_Φ1</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">AR1_process</span><span class="hl std">(µ, σ2, Φ1, T)</span>
+<span class="hl std">X_Φ2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">AR1_process</span><span class="hl std">(µ, σ2, Φ2, T)</span>
+
+<span class="hl com"># Stan-code</span>
+<span class="hl com"># You need to define the variables </span>
+<span class="hl std">stan_program</span> <span class="hl kwb">=</span> <span class="hl str">'
+data {
+  int&lt;lower=0&gt; T;
+  vector[T] X;
+}
+parameters {
+  real mu;
+  real&lt;lower=0&gt; sigma;
+  real phi;
+}
+model {
+  for (t in 2:T) 
+    X[t] ~ normal(mu + phi * (X[t-1] - mu), sigma);
+}
+'</span>
+<span class="hl std">nIter</span> <span class="hl kwb">&lt;-</span> <span class="hl num">4000</span>
+<span class="hl std">burnIn</span> <span class="hl kwb">&lt;-</span> <span class="hl num">1000</span>
+<span class="hl com"># To find information within the stan.res-variable:</span>
+<span class="hl com"># summary(stan.res.Φ1): All information</span>
+<span class="hl com"># summary(stan.res.Φ1)$summary: Just the summary</span>
+<span class="hl com"># extract(stan.res.Φ1): The estimastes of variables</span>
+
+<span class="hl com"># The percentages in the summary are the credible intervals of the</span>
+<span class="hl com"># covariates. When phi is large, the CI-interval of mu will be very wide.</span>
+<span class="hl com"># This is because it will be affected of previous time-series alot.</span>
+
+<span class="hl com"># Effective posterior samples:</span>
+<span class="hl com"># When the observations in a sample distribution is correlated or weighted,</span>
+<span class="hl com"># the effective sample size is calculated.</span>
+<span class="hl com"># Effective sample size is thought of as an &quot;Exchange rate&quot; between</span>
+<span class="hl com"># dependent and independent samples. For example, 1000 dependent samples</span>
+<span class="hl com"># are worth as much as 80 independent samples.</span>
+<span class="hl com"># If the samples are independent, the effective sample size equals the</span>
+<span class="hl com"># actual sample size.</span>
+<span class="hl std">stan.res.Φ1</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">stan</span><span class="hl std">(</span><span class="hl kwc">model_code</span> <span class="hl std">= stan_program,</span>
+                 <span class="hl kwc">data</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">X</span> <span class="hl std">= X_Φ1,</span> <span class="hl kwc">N</span> <span class="hl std">= T),</span>
+                 <span class="hl kwc">warmup</span> <span class="hl std">= burnIn,</span>
+                 <span class="hl kwc">iter</span> <span class="hl std">= nIter)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## 
+## SAMPLING FOR MODEL '939736090b474177bc269dde16cea209' NOW (CHAIN 1).
+## 
+## Gradient evaluation took 6.3e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.63 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.199382 seconds (Warm-up)
+##                0.384242 seconds (Sampling)
+##                0.583624 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '939736090b474177bc269dde16cea209' NOW (CHAIN 2).
+## 
+## Gradient evaluation took 2.3e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.23 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.171009 seconds (Warm-up)
+##                0.356238 seconds (Sampling)
+##                0.527247 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '939736090b474177bc269dde16cea209' NOW (CHAIN 3).
+## 
+## Gradient evaluation took 2.3e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.23 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.167228 seconds (Warm-up)
+##                0.925239 seconds (Sampling)
+##                1.09247 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '939736090b474177bc269dde16cea209' NOW (CHAIN 4).
+## 
+## Gradient evaluation took 2.7e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.27 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.230024 seconds (Warm-up)
+##                0.631692 seconds (Sampling)
+##                0.861716 seconds (Total)
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">stan.res.Φ2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">stan</span><span class="hl std">(</span><span class="hl kwc">model_code</span> <span class="hl std">= stan_program,</span>
+                    <span class="hl kwc">data</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">X</span> <span class="hl std">= X_Φ2,</span> <span class="hl kwc">N</span> <span class="hl std">= T),</span>
+                    <span class="hl kwc">warmup</span> <span class="hl std">= burnIn,</span>
+                    <span class="hl kwc">iter</span> <span class="hl std">= nIter)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## 
+## SAMPLING FOR MODEL '939736090b474177bc269dde16cea209' NOW (CHAIN 1).
+## 
+## Gradient evaluation took 2.7e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.27 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.247742 seconds (Warm-up)
+##                0.628643 seconds (Sampling)
+##                0.876385 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '939736090b474177bc269dde16cea209' NOW (CHAIN 2).
+## 
+## Gradient evaluation took 3.1e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.31 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.626998 seconds (Warm-up)
+##                0.423013 seconds (Sampling)
+##                1.05001 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '939736090b474177bc269dde16cea209' NOW (CHAIN 3).
+## 
+## Gradient evaluation took 2.3e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.23 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.3665 seconds (Warm-up)
+##                0.480416 seconds (Sampling)
+##                0.846916 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '939736090b474177bc269dde16cea209' NOW (CHAIN 4).
+## 
+## Gradient evaluation took 2.5e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.25 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.531858 seconds (Warm-up)
+##                0.590373 seconds (Sampling)
+##                1.12223 seconds (Total)
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: There were 13 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See
+## http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: Examine the pairs() plot to diagnose sampling problems
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># Plot</span>
+<span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">2</span><span class="hl std">))</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab3-Rhtmlauto-report-6.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl kwd">plot</span><span class="hl std">(</span><span class="hl kwd">extract</span><span class="hl std">(stan.res.Φ1)</span><span class="hl opt">$</span><span class="hl std">mu,</span> <span class="hl kwd">extract</span><span class="hl std">(stan.res.Φ1)</span><span class="hl opt">$</span><span class="hl std">phi)</span>
+<span class="hl kwd">plot</span><span class="hl std">(</span><span class="hl kwd">extract</span><span class="hl std">(stan.res.Φ2)</span><span class="hl opt">$</span><span class="hl std">mu,</span> <span class="hl kwd">extract</span><span class="hl std">(stan.res.Φ2)</span><span class="hl opt">$</span><span class="hl std">phi)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab3-Rhtmlauto-report-7.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># c)</span>
+<span class="hl com"># campy.dat: No. of cases of campylobacter infections in the north of</span>
+<span class="hl com"># province Quebec (Canada). Data recorded in 4 weeks intervals from</span>
+<span class="hl com"># January 1990 to end of October 2000.</span>
+<span class="hl com"># 13 observations/year</span>
+<span class="hl com"># 140 observations in total</span>
+
+<span class="hl com"># c_t: No. of infections at each timepoint.</span>
+<span class="hl com"># c_t follows an indenepdent Poisson distribution when conditioned on a</span>
+<span class="hl com"># latent AR(1)-process x_t:</span>
+<span class="hl com">#</span>
+<span class="hl com">#     c_t | x_t ~ Poisson(exp(x_t))</span>
+<span class="hl com">#</span>
+<span class="hl com"># x_t: Same AR(1)-process as in a)</span>
+
+<span class="hl std">X.campy</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">read.table</span><span class="hl std">(</span><span class="hl str">&quot;campy.dat&quot;</span><span class="hl std">,</span> <span class="hl kwc">header</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+<span class="hl std">T</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dim</span><span class="hl std">(X.campy)[</span><span class="hl num">1</span><span class="hl std">]</span>
+
+<span class="hl std">stan_program</span> <span class="hl kwb">=</span> <span class="hl str">'
+data {
+  int&lt;lower=0&gt; T;
+  int c[T];
+}
+parameters {
+  real phi;
+  real sigma;
+  real mu;
+  vector[T] X;
+}
+model {
+  phi ~ uniform(-1, 1);
+  for (t in 2:T)
+    X[t] ~ normal(mu + phi*(X[t-1] - mu), sigma);
+
+  for (t in 1:T)
+    c[t] ~ poisson(exp(X[t]));
+}
+'</span>
+
+<span class="hl com"># Setup STAN</span>
+<span class="hl std">nIter</span> <span class="hl kwb">&lt;-</span> <span class="hl num">4000</span>
+<span class="hl std">burnIn</span> <span class="hl kwb">&lt;-</span> <span class="hl num">1000</span>
+
+<span class="hl com"># Stan</span>
+<span class="hl std">stan.res.campy</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">stan</span><span class="hl std">(</span><span class="hl kwc">model_code</span> <span class="hl std">= stan_program,</span>
+                       <span class="hl kwc">data</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">c</span> <span class="hl std">= X.campy[,</span> <span class="hl num">1</span><span class="hl std">],</span> <span class="hl kwc">T</span> <span class="hl std">= T),</span>
+                       <span class="hl kwc">warmup</span> <span class="hl std">= burnIn,</span>
+                       <span class="hl kwc">iter</span> <span class="hl std">= nIter)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## 
+## SAMPLING FOR MODEL '84d61f7438b6b140eede82fa43d85dcb' NOW (CHAIN 1).
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -0.822548, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -0.910291, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## 
+## Gradient evaluation took 4e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.4 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 1.00992 seconds (Warm-up)
+##                1.70517 seconds (Sampling)
+##                2.71509 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '84d61f7438b6b140eede82fa43d85dcb' NOW (CHAIN 2).
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -0.182176, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -1.18621, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## 
+## Gradient evaluation took 3.5e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.35 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.820817 seconds (Warm-up)
+##                1.75097 seconds (Sampling)
+##                2.57179 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '84d61f7438b6b140eede82fa43d85dcb' NOW (CHAIN 3).
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -0.730534, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## 
+## Gradient evaluation took 3.5e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.35 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.803558 seconds (Warm-up)
+##                1.79244 seconds (Sampling)
+##                2.596 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '84d61f7438b6b140eede82fa43d85dcb' NOW (CHAIN 4).
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -1.49862, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -1.54303, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -1.5654, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -0.0624924, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -0.528047, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -0.221849, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -1.19499, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is -1.55953, but must be &gt; 0!  (in 'model1006a6cbe442b_84d61f7438b6b140eede82fa43d85dcb' at line 15)
+## 
+## 
+## Gradient evaluation took 6.4e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.64 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 0.828812 seconds (Warm-up)
+##                2.28296 seconds (Sampling)
+##                3.11178 seconds (Total)
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: There were 46 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See
+## http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+
+## Warning: Examine the pairs() plot to diagnose sampling problems
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># Mean of c_i. Calculated by taking the mean of exp(X), where X is generated by STAN.</span>
+<span class="hl std">mean_stan</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">exp</span><span class="hl std">(</span><span class="hl kwd">apply</span><span class="hl std">(</span><span class="hl kwd">extract</span><span class="hl std">(stan.res.campy)</span><span class="hl opt">$</span><span class="hl std">X,</span> <span class="hl kwc">MARGIN</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">, mean))</span>
+
+<span class="hl com"># Credible interval</span>
+<span class="hl std">stan.summary</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">summary</span><span class="hl std">(stan.res.campy)</span><span class="hl opt">$</span><span class="hl std">summary</span>
+<span class="hl std">CI_lower</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">exp</span><span class="hl std">(stan.summary[</span><span class="hl opt">-</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl num">3</span><span class="hl std">),</span> <span class="hl str">&quot;2.5%&quot;</span><span class="hl std">])</span>
+<span class="hl std">CI_upper</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">exp</span><span class="hl std">(stan.summary[</span><span class="hl opt">-</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl num">3</span><span class="hl std">),</span> <span class="hl str">&quot;97.5%&quot;</span><span class="hl std">])</span>
+
+<span class="hl com"># Plot</span>
+<span class="hl kwd">plot</span><span class="hl std">(X.campy[,</span><span class="hl num">1</span><span class="hl std">])</span> <span class="hl com"># Plot data</span>
+<span class="hl kwd">lines</span><span class="hl std">(mean_stan,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span> <span class="hl com"># Plot mean of stan</span>
+<span class="hl kwd">lines</span><span class="hl std">(CI_lower,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span> <span class="hl com"># Plot lower Credible interval</span>
+<span class="hl kwd">lines</span><span class="hl std">(CI_upper,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span> <span class="hl com"># Plot upper Credible interval</span>
+
+<span class="hl com"># Hist of theta_i</span>
+<span class="hl kwd">hist</span><span class="hl std">(</span><span class="hl kwd">log</span><span class="hl std">(mean_stan),</span> <span class="hl kwc">breaks</span> <span class="hl std">=</span> <span class="hl num">200</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab3-Rhtmlauto-report-8.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># d)</span>
+<span class="hl com"># A Scaled inverse chi square prior has been added to sigma2.</span>
+
+<span class="hl std">stan_program</span> <span class="hl kwb">=</span> <span class="hl str">'
+  data {
+  int&lt;lower=0&gt; T;
+  int c[T];
+}
+parameters {
+  real phi;
+  real sigma2;
+  real mu;
+  vector[T] X;
+}
+model {
+  phi ~ uniform(-1, 1);
+  sigma2 ~ scaled_inv_chi_square(T, 0.03);
+
+  for (t in 2:T)
+  X[t] ~ normal(mu + phi*(X[t-1] - mu), sqrt(sigma2));
+  
+  for (t in 1:T)
+  c[t] ~ poisson(exp(X[t]));
+}
+'</span>
+
+<span class="hl com"># Setup STAN</span>
+<span class="hl std">nIter</span> <span class="hl kwb">&lt;-</span> <span class="hl num">4000</span>
+<span class="hl std">burnIn</span> <span class="hl kwb">&lt;-</span> <span class="hl num">1000</span>
+
+<span class="hl com"># Stan</span>
+<span class="hl std">stan.res.campy</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">stan</span><span class="hl std">(</span><span class="hl kwc">model_code</span> <span class="hl std">= stan_program,</span>
+                       <span class="hl kwc">data</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">c</span> <span class="hl std">= X.campy[,</span> <span class="hl num">1</span><span class="hl std">],</span> <span class="hl kwc">T</span> <span class="hl std">= T),</span>
+                       <span class="hl kwc">warmup</span> <span class="hl std">= burnIn,</span>
+                       <span class="hl kwc">iter</span> <span class="hl std">= nIter)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## 
+## SAMPLING FOR MODEL '0a012e06fd076bfe3c23dd2eac238912' NOW (CHAIN 1).
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## Rejecting initial value:
+##   Log probability evaluates to log(0), i.e. negative infinity.
+##   Stan can't start sampling from this initial value.
+## 
+## Gradient evaluation took 4.7e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.47 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 19.4695 seconds (Warm-up)
+##                31.3619 seconds (Sampling)
+##                50.8314 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '0a012e06fd076bfe3c23dd2eac238912' NOW (CHAIN 2).
+## 
+## Gradient evaluation took 4.4e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.44 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 17.518 seconds (Warm-up)
+##                38.1507 seconds (Sampling)
+##                55.6686 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '0a012e06fd076bfe3c23dd2eac238912' NOW (CHAIN 3).
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is nan, but must be &gt; 0!  (in 'model1006a5cbc4fa2_0a012e06fd076bfe3c23dd2eac238912' at line 17)
+## 
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is nan, but must be &gt; 0!  (in 'model1006a5cbc4fa2_0a012e06fd076bfe3c23dd2eac238912' at line 17)
+## 
+## 
+## Gradient evaluation took 6.3e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.63 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 17.8927 seconds (Warm-up)
+##                39.4843 seconds (Sampling)
+##                57.377 seconds (Total)
+## 
+## 
+## SAMPLING FOR MODEL '0a012e06fd076bfe3c23dd2eac238912' NOW (CHAIN 4).
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is nan, but must be &gt; 0!  (in 'model1006a5cbc4fa2_0a012e06fd076bfe3c23dd2eac238912' at line 17)
+## 
+## Rejecting initial value:
+##   Error evaluating the log probability at the initial value.
+## Exception: normal_lpdf: Scale parameter is nan, but must be &gt; 0!  (in 'model1006a5cbc4fa2_0a012e06fd076bfe3c23dd2eac238912' at line 17)
+## 
+## 
+## Gradient evaluation took 3.3e-05 seconds
+## 1000 transitions using 10 leapfrog steps per transition would take 0.33 seconds.
+## Adjust your expectations accordingly!
+## 
+## 
+## Iteration:    1 / 4000 [  0%]  (Warmup)
+## Iteration:  400 / 4000 [ 10%]  (Warmup)
+## Iteration:  800 / 4000 [ 20%]  (Warmup)
+## Iteration: 1001 / 4000 [ 25%]  (Sampling)
+## Iteration: 1400 / 4000 [ 35%]  (Sampling)
+## Iteration: 1800 / 4000 [ 45%]  (Sampling)
+## Iteration: 2200 / 4000 [ 55%]  (Sampling)
+## Iteration: 2600 / 4000 [ 65%]  (Sampling)
+## Iteration: 3000 / 4000 [ 75%]  (Sampling)
+## Iteration: 3400 / 4000 [ 85%]  (Sampling)
+## Iteration: 3800 / 4000 [ 95%]  (Sampling)
+## Iteration: 4000 / 4000 [100%]  (Sampling)
+## 
+##  Elapsed Time: 17.6851 seconds (Warm-up)
+##                53.8339 seconds (Sampling)
+##                71.519 seconds (Total)
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: There were 3261 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See
+## http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: There were 314 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10. See
+## http://mc-stan.org/misc/warnings.html#maximum-treedepth-exceeded
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: Examine the pairs() plot to diagnose sampling problems
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># Mean of c_i. Calculated by taking the mean of exp(X), where X is generated by STAN.</span>
+<span class="hl std">mean_stan</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">exp</span><span class="hl std">(</span><span class="hl kwd">apply</span><span class="hl std">(</span><span class="hl kwd">extract</span><span class="hl std">(stan.res.campy)</span><span class="hl opt">$</span><span class="hl std">X,</span> <span class="hl kwc">MARGIN</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">, mean))</span>
+
+<span class="hl com"># Credible interval</span>
+<span class="hl std">stan.summary</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">summary</span><span class="hl std">(stan.res.campy)</span><span class="hl opt">$</span><span class="hl std">summary</span>
+<span class="hl std">CI_lower</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">exp</span><span class="hl std">(stan.summary[</span><span class="hl opt">-</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl num">3</span><span class="hl std">),</span> <span class="hl str">&quot;2.5%&quot;</span><span class="hl std">])</span>
+<span class="hl std">CI_upper</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">exp</span><span class="hl std">(stan.summary[</span><span class="hl opt">-</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl num">3</span><span class="hl std">),</span> <span class="hl str">&quot;97.5%&quot;</span><span class="hl std">])</span>
+
+<span class="hl com"># Plot</span>
+<span class="hl kwd">plot</span><span class="hl std">(X.campy[,</span><span class="hl num">1</span><span class="hl std">])</span> <span class="hl com"># Plot data</span>
+<span class="hl kwd">lines</span><span class="hl std">(mean_stan,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span> <span class="hl com"># Plot mean of stan</span>
+<span class="hl kwd">lines</span><span class="hl std">(CI_lower,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span> <span class="hl com"># Plot lower Credible interval</span>
+<span class="hl kwd">lines</span><span class="hl std">(CI_upper,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span> <span class="hl com"># Plot upper Credible interval</span>
+
+<span class="hl com"># Histogram</span>
+<span class="hl kwd">hist</span><span class="hl std">(</span><span class="hl kwd">log</span><span class="hl std">(mean_stan),</span> <span class="hl kwc">breaks</span> <span class="hl std">=</span> <span class="hl num">200</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab3-Rhtmlauto-report-9.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div></div>
+
+  <p>The R session information (including the OS info, R version and all
+    packages used):</p>
+
+<div class="chunk" id="session-info"><div class="rcode"><div class="source"><pre class="knitr r">    <span class="hl kwd">sessionInfo</span><span class="hl std">()</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## R version 3.4.2 (2017-09-28)
+## Platform: x86_64-apple-darwin15.6.0 (64-bit)
+## Running under: OS X El Capitan 10.11.6
+## 
+## Matrix products: default
+## BLAS: /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib
+## LAPACK: /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib
+## 
+## locale:
+## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] knitr_1.18         mvtnorm_1.0-7      rstan_2.17.3       StanHeaders_2.17.2
+## [5] ggplot2_2.2.1     
+## 
+## loaded via a namespace (and not attached):
+##  [1] Rcpp_0.12.13     codetools_0.2-15 grid_3.4.2       plyr_1.8.4       gtable_0.2.0    
+##  [6] magrittr_1.5     stats4_3.4.2     evaluate_0.10.1  scales_0.5.0     highr_0.6       
+## [11] stringi_1.1.5    rlang_0.1.4      lazyeval_0.2.1   tools_3.4.2      stringr_1.2.0   
+## [16] munsell_0.4.3    yaml_2.1.16      compiler_3.4.2   inline_0.3.14    colorspace_1.3-2
+## [21] gridExtra_2.3    tibble_1.3.4
+</pre></div>
+<div class="source"><pre class="knitr r">    <span class="hl kwd">Sys.time</span><span class="hl std">()</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] &quot;2018-05-28 16:44:22 CEST&quot;
+</pre></div>
+</div></div>
+
+
+</body>
+</html>

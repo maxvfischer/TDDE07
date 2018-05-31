@@ -1,4 +1,33 @@
-########################## Lab1 ##########################
+########################## Lab 2 ##########################
+## Meta-info
+# Linear regression
+# Polynomial regression
+# Logistic regressions
+# Credible interval
+# Maximum likelihood
+# Optim
+# Hessian
+# Mode of beta
+# Predictive distributions
+
+# Task 1: Linear and polynomial regression
+# a) Set the prior hyperparameters µ0, Ω0, ν0 and σ2 to sensible values
+# b) Check if your prior from a) is sensible
+# Simulate draws from joint prior and compute regression curve of each draw
+# c) Simulates from the joint posterior distribution of β0, β1,β2 and σ2
+# Plot: 
+# • Posterior mean of simulations
+# • Curve of lower and upper credible interval of f(time)
+# d) Simulate highest expected temperatures
+# Simulate from posterior distribution of time with highest expected temperatures
+# What to do to mitigate risk of overfitting high order polynomial regression?
+
+# Task 2: Posterior approximation for classification with logistic regression
+# a) Fit logistic regression using maximum likelihood estimations
+# b) Approximate the posterior distribution of the 8-dim parameter vector β with a multivariate normal distribution
+# c) Simulates from the predictive distribution of the response variable in a logistic regression
+
+#####################################################################################################
 
 # Functions
 scal_inv_schsq <- function(v, σ_2, nDraws) {
@@ -254,4 +283,3 @@ hist(pred_work, breaks=100)
 # ~99.5% of the values are below 0.5.
 # The data is indicating that the target woman doesn't work.
 percent_below_05 <- sum(ifelse(pred_work < 0.5, 1, 0))/length(pred_work)
-

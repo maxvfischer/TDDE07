@@ -1,4 +1,24 @@
 ########################## Lab 4 ##########################
+## MCMC
+## Metropolis algorithm
+## Poisson regression
+## Hessian
+## Mode
+## Maximum likelihood estimator
+## Program general functions
+
+# Task 1: Poisson regression - the MCMC way
+# a) Obtain the maximum likelihood estimator of β in the Poisson regression model
+# Find significant covariates
+# b) Bayesian analysis of the Poisson regression
+# Find mode and hessian of Beta
+# c) Simulate from the actual posterior of β using the Metropolis algorithm and 
+# compare with the approximate results in b)
+# Program general function
+# d) Use MCMC draws from c) to simulate from the predictive distribution of
+# the number of bidders in a new auction
+
+
 
 library(mvtnorm)
 

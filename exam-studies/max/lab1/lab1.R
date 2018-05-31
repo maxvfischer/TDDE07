@@ -1,4 +1,27 @@
 ########################## Lab1 ##########################
+### Meta-info
+## Beta distribution
+## Simulations
+## Gini coefficient
+## Credible interval
+## Highest Posterior Density HPD
+
+# Task 1: Bernoulli ... again
+# a) Draw random numbers from Beta distribution and graphical verification
+# of posterior
+# b) Simulate to compute posterior prob of Pr(theta < 0.4)
+# c) Compute log-oods posterior distribution
+
+# Task 2: Log-normal distribution and the Gini coefficient
+# a) Simulate 1000 draws from posterior or theta2. Compare with real value
+# b) Compute posterior distribution of Gini coefficient G
+# c) Compute 95% equal tail credible interval of Gini coefficient G.
+# Doing a kernal density estimate
+# Compute 95% Highest Posterior Density interval (HPD) of G
+
+# Task 3: Bayesian inference for the concentration parameter in the von Mises distributio
+# a) Plot posterior distribution of kappa for wind direction data
+# b) Find approximate posterior mode of kappa
 
 ############# Task 1 #############
 # Bernoulli ... again
@@ -41,7 +64,8 @@ for (i in intervalVec) {
 
 # True values
 posterior.true_mean <- posterior.alpha/(posterior.alpha + posterior.beta)
-posterior.true_sd <- sqrt((posterior.alpha*posterior.beta)/((posterior.alpha + posterior.beta)^2 * (posterior.alpha + posterior.beta + 1)))
+posterior.true_sd <- sqrt((posterior.alpha*posterior.beta)/
+                          ((posterior.alpha + posterior.beta)^2 * (posterior.alpha + posterior.beta + 1)))
 
 # Plot
 par(mfrow = c(1, 2))
@@ -210,8 +234,8 @@ hist(gini_coef, breaks=200, probability = TRUE) # Hist Gini-coefficients
 lines(density(gini_coef), col='red') # Plot density curve
 abline(v = gini_coef_CI$lower, col='blue') # Plot lower CI line
 abline(v = gini_coef_CI$upper, col='blue') # Plot upper CI line
-abline(v = HDP_interval$lower, col='green') # Plot lower HPD interval
-abline(v = HDP_interval$upper, col='green') # Plot upper HPD interval
+abline(v = HPD_interval$lower, col='green') # Plot lower HPD interval
+abline(v = HPD_interval$upper, col='green') # Plot upper HPD interval
 
 ############# Task 3 #############
 # von Mises distribution looks like a normal distribution with a spiky top and
