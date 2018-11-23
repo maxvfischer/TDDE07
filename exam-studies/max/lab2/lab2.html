@@ -1,0 +1,417 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style type="text/css">
+.knitr .inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.rimage .left {
+  text-align: left;
+}
+.rimage .right {
+  text-align: right;
+}
+.rimage .center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+  <script src="https://yihui.name/media/js/center-images.js"></script>
+  <title>\title{\title{}}</title>
+</head>
+<body>
+
+  <p>This report is automatically generated with the R
+    package <a href="https://yihui.name/knitr/"><strong>knitr</strong></a>
+    (version <code class="knitr inline">1.18</code>)
+    .</p>
+
+<div class="chunk" id="auto-report"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">########################## Lab 2 ##########################</span>
+<span class="hl com">## Meta-info</span>
+<span class="hl com"># Linear regression</span>
+<span class="hl com"># Polynomial regression</span>
+<span class="hl com"># Logistic regressions</span>
+<span class="hl com"># Credible interval</span>
+<span class="hl com"># Maximum likelihood</span>
+<span class="hl com"># Optim</span>
+<span class="hl com"># Hessian</span>
+<span class="hl com"># Mode of beta</span>
+<span class="hl com"># Predictive distributions</span>
+
+<span class="hl com"># Task 1: Linear and polynomial regression</span>
+<span class="hl com"># a) Set the prior hyperparameters µ0, Ω0, ν0 and σ2 to sensible values</span>
+<span class="hl com"># b) Check if your prior from a) is sensible</span>
+<span class="hl com"># Simulate draws from joint prior and compute regression curve of each draw</span>
+<span class="hl com"># c) Simulates from the joint posterior distribution of β0, β1,β2 and σ2</span>
+<span class="hl com"># Plot: </span>
+<span class="hl com"># • Posterior mean of simulations</span>
+<span class="hl com"># • Curve of lower and upper credible interval of f(time)</span>
+<span class="hl com"># d) Simulate highest expected temperatures</span>
+<span class="hl com"># Simulate from posterior distribution of time with highest expected temperatures</span>
+<span class="hl com"># What to do to mitigate risk of overfitting high order polynomial regression?</span>
+
+<span class="hl com"># Task 2: Posterior approximation for classification with logistic regression</span>
+<span class="hl com"># a) Fit logistic regression using maximum likelihood estimations</span>
+<span class="hl com"># b) Approximate the posterior distribution of the 8-dim parameter vector β with a multivariate normal distribution</span>
+<span class="hl com"># c) Simulates from the predictive distribution of the response variable in a logistic regression</span>
+
+<span class="hl com">#####################################################################################################</span>
+
+<span class="hl com"># Functions</span>
+<span class="hl std">scal_inv_schsq</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">v</span><span class="hl std">,</span> <span class="hl kwc">σ_2</span><span class="hl std">,</span> <span class="hl kwc">nDraws</span><span class="hl std">) {</span>
+  <span class="hl std">X</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rchisq</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">= nDraws,</span> <span class="hl kwc">df</span> <span class="hl std">= v)</span>
+  <span class="hl kwd">return</span> <span class="hl std">(v</span><span class="hl opt">*</span><span class="hl std">σ_2</span><span class="hl opt">/</span><span class="hl std">X)</span>
+<span class="hl std">}</span>
+
+<span class="hl com">############# Task 1 #############</span>
+<span class="hl com"># Respons variable: temp = β0 + β1*time + β2 * time^2 + ε, ε ~ N(0, σ2)</span>
+<span class="hl com"># Covariate: time = No. of days since beginning of year/366</span>
+
+<span class="hl com"># a)</span>
+<span class="hl com"># Conjugate priors</span>
+<span class="hl com"># β | µ ~ N(µ0, σ2*Ω0_(-1))</span>
+<span class="hl com"># σ2 ~ Inv-X(v0, σ0_2)</span>
+<span class="hl com">#</span>
+<span class="hl com"># Set prior hyperparameters:</span>
+<span class="hl com"># µ0: The expected value of the betas [vector]</span>
+<span class="hl com"># Ω0: How sure we are about the betas (scales the variance) [matrix]</span>
+<span class="hl com"># ν0: How sure we are about our prior knowledge of the sigmas [scalar]</span>
+<span class="hl com"># σ0_2: The variance of the betas [vector]</span>
+
+<span class="hl std">dataset</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">read.table</span><span class="hl std">(</span><span class="hl str">&quot;TempLinkoping.txt&quot;</span><span class="hl std">,</span> <span class="hl kwc">header</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+
+<span class="hl std">prior.mu0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl num">5</span><span class="hl std">,</span> <span class="hl num">100</span><span class="hl std">,</span> <span class="hl opt">-</span><span class="hl num">100</span><span class="hl std">)</span>
+<span class="hl std">prior.v0</span> <span class="hl kwb">&lt;-</span> <span class="hl num">10</span>
+<span class="hl std">prior.σ0_2</span> <span class="hl kwb">&lt;-</span> <span class="hl std">(</span><span class="hl num">7</span><span class="hl opt">/</span><span class="hl num">1.96</span><span class="hl std">)</span><span class="hl opt">^</span><span class="hl num">2</span> <span class="hl com"># 10 = 1.95 * σ -&gt; 10 degrees are in the confidence interval 95% of the times</span>
+<span class="hl std">prior.Ω0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0.5</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0.1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0.1</span><span class="hl std">),</span>
+                   <span class="hl kwc">nrow</span> <span class="hl std">=</span> <span class="hl num">3</span><span class="hl std">,</span>
+                   <span class="hl kwc">ncol</span> <span class="hl std">=</span> <span class="hl num">3</span><span class="hl std">)</span>
+<span class="hl std">prior.inv_Ω0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">solve</span><span class="hl std">(prior.Ω0)</span>
+
+<span class="hl com"># b)</span>
+<span class="hl std">nDraws</span> <span class="hl kwb">=</span> <span class="hl num">1000</span>
+<span class="hl std">beta_draws</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwc">nrow</span> <span class="hl std">= nDraws,</span> <span class="hl kwc">ncol</span> <span class="hl std">=</span> <span class="hl num">3</span><span class="hl std">)</span>
+
+<span class="hl kwd">plot.new</span><span class="hl std">()</span>
+<span class="hl kwd">plot.window</span><span class="hl std">(</span><span class="hl kwc">xlim</span><span class="hl std">=</span><span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span><span class="hl num">1</span><span class="hl std">),</span> <span class="hl kwc">ylim</span><span class="hl std">=</span><span class="hl kwd">c</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl num">20</span><span class="hl std">,</span> <span class="hl num">30</span><span class="hl std">))</span>
+<span class="hl kwd">axis</span><span class="hl std">(</span><span class="hl kwc">side</span><span class="hl std">=</span><span class="hl num">1</span><span class="hl std">)</span>
+<span class="hl kwd">axis</span><span class="hl std">(</span><span class="hl kwc">side</span><span class="hl std">=</span><span class="hl num">2</span><span class="hl std">)</span>
+
+<span class="hl com"># Sample betas &amp; plot regression curves</span>
+<span class="hl kwa">for</span> <span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nDraws) {</span>
+  <span class="hl std">sigma2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">scal_inv_schsq</span><span class="hl std">(prior.v0, prior.σ0_2,</span> <span class="hl num">1</span><span class="hl std">)</span> <span class="hl com"># Sample sigma2 from scaled inverse chi squared</span>
+  <span class="hl std">beta_draws[i,]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rmvnorm</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">mean</span> <span class="hl std">= prior.mu0,</span> <span class="hl kwc">sigma</span> <span class="hl std">= sigma2</span><span class="hl opt">*</span><span class="hl std">prior.inv_Ω0)</span> <span class="hl com"># Sample betas from Multinormal</span>
+
+  <span class="hl com"># Generates regression point for each dataset$time. All of them are then plotted as a line</span>
+  <span class="hl kwd">lines</span><span class="hl std">(dataset</span><span class="hl opt">$</span><span class="hl std">time,</span>
+        <span class="hl std">beta_draws[i,</span><span class="hl num">1</span><span class="hl std">]</span> <span class="hl opt">+</span> <span class="hl std">beta_draws[i,</span><span class="hl num">2</span><span class="hl std">]</span><span class="hl opt">*</span><span class="hl std">dataset</span><span class="hl opt">$</span><span class="hl std">time</span> <span class="hl opt">+</span> <span class="hl std">beta_draws[i,</span><span class="hl num">3</span><span class="hl std">]</span><span class="hl opt">*</span><span class="hl std">dataset</span><span class="hl opt">$</span><span class="hl std">time</span><span class="hl opt">^</span><span class="hl num">2</span><span class="hl std">,</span>
+        <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0.1</span><span class="hl std">))</span>
+<span class="hl std">}</span>
+
+<span class="hl kwd">lines</span><span class="hl std">(dataset</span><span class="hl opt">$</span><span class="hl std">time,</span>
+      <span class="hl kwd">mean</span><span class="hl std">(beta_draws[,</span><span class="hl num">1</span><span class="hl std">])</span> <span class="hl opt">+</span> <span class="hl kwd">mean</span><span class="hl std">(beta_draws[,</span><span class="hl num">2</span><span class="hl std">])</span><span class="hl opt">*</span><span class="hl std">dataset</span><span class="hl opt">$</span><span class="hl std">time</span> <span class="hl opt">+</span> <span class="hl kwd">mean</span><span class="hl std">(beta_draws[,</span><span class="hl num">3</span><span class="hl std">])</span><span class="hl opt">*</span><span class="hl std">dataset</span><span class="hl opt">$</span><span class="hl std">time</span><span class="hl opt">^</span><span class="hl num">2</span><span class="hl std">,</span>
+      <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab2-Rhtmlauto-report-1.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># Priors not sensible. New priors</span>
+<span class="hl std">prior.mu0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl num">5</span><span class="hl std">,</span> <span class="hl num">100</span><span class="hl std">,</span> <span class="hl opt">-</span><span class="hl num">100</span><span class="hl std">)</span>
+<span class="hl std">prior.v0</span> <span class="hl kwb">&lt;-</span> <span class="hl num">10</span>
+<span class="hl std">prior.σ0_2</span> <span class="hl kwb">&lt;-</span> <span class="hl std">(</span><span class="hl num">7</span><span class="hl opt">/</span><span class="hl num">1.96</span><span class="hl std">)</span><span class="hl opt">^</span><span class="hl num">2</span> <span class="hl com"># 7 = 1.95 * σ -&gt; 7 degrees are in the confidence interval 95% of the times</span>
+<span class="hl std">prior.Ω0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0.5</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0.1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0.1</span><span class="hl std">),</span>
+                   <span class="hl kwc">nrow</span> <span class="hl std">=</span> <span class="hl num">3</span><span class="hl std">,</span>
+                   <span class="hl kwc">ncol</span> <span class="hl std">=</span> <span class="hl num">3</span><span class="hl std">)</span>
+<span class="hl std">prior.inv_Ω0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">solve</span><span class="hl std">(prior.Ω0)</span>
+<span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dim</span><span class="hl std">(dataset)[</span><span class="hl num">1</span><span class="hl std">]</span>
+
+<span class="hl com"># c) </span>
+
+<span class="hl com"># Setup</span>
+<span class="hl std">X</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">cbind</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">, dataset</span><span class="hl opt">$</span><span class="hl std">time, dataset</span><span class="hl opt">$</span><span class="hl std">time</span><span class="hl opt">^</span><span class="hl num">2</span><span class="hl std">)</span> <span class="hl com"># Create X with constant row for beta_0</span>
+<span class="hl std">Y</span> <span class="hl kwb">&lt;-</span> <span class="hl std">dataset</span><span class="hl opt">$</span><span class="hl std">temp</span>
+<span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dim</span><span class="hl std">(dataset)[</span><span class="hl num">1</span><span class="hl std">]</span>
+<span class="hl std">CI</span> <span class="hl kwb">&lt;-</span> <span class="hl num">0.90</span>
+<span class="hl std">CI_lower</span> <span class="hl kwb">&lt;-</span> <span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">-</span><span class="hl std">CI)</span><span class="hl opt">/</span><span class="hl num">2</span> <span class="hl com"># 0.05</span>
+<span class="hl std">CI_upper</span> <span class="hl kwb">&lt;-</span> <span class="hl num">1</span><span class="hl opt">-</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">-</span><span class="hl std">CI)</span><span class="hl opt">/</span><span class="hl num">2</span> <span class="hl com"># 0.95</span>
+
+<span class="hl com"># Posterior</span>
+<span class="hl std">beta_hat</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">solve</span><span class="hl std">(</span><span class="hl kwd">t</span><span class="hl std">(X)</span><span class="hl opt">%*%</span><span class="hl std">X)</span><span class="hl opt">%*%</span><span class="hl kwd">t</span><span class="hl std">(X)</span><span class="hl opt">%*%</span><span class="hl std">Y</span> <span class="hl com"># Beta_hat by classic by OLS (Ordinary Least Square)</span>
+<span class="hl std">posterior.mun</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">solve</span><span class="hl std">(</span><span class="hl kwd">t</span><span class="hl std">(X)</span> <span class="hl opt">%*%</span> <span class="hl std">X</span> <span class="hl opt">+</span> <span class="hl std">prior.Ω0)</span> <span class="hl opt">%*%</span> <span class="hl std">(</span><span class="hl kwd">t</span><span class="hl std">(X)</span> <span class="hl opt">%*%</span> <span class="hl std">X</span> <span class="hl opt">%*%</span> <span class="hl std">beta_hat</span> <span class="hl opt">+</span> <span class="hl std">prior.Ω0</span> <span class="hl opt">%*%</span> <span class="hl std">prior.mu0)</span> <span class="hl com"># Mu_n</span>
+<span class="hl std">posterior.Ωn</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">t</span><span class="hl std">(X)</span><span class="hl opt">%*%</span><span class="hl std">X</span> <span class="hl opt">+</span> <span class="hl std">prior.Ω0</span> <span class="hl com"># Omega_n</span>
+<span class="hl std">posterior.inv_Ωn</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">solve</span><span class="hl std">(posterior.Ωn)</span> <span class="hl com"># Inverse Omega_n</span>
+<span class="hl std">posterior.vn</span> <span class="hl kwb">&lt;-</span> <span class="hl std">prior.v0</span> <span class="hl opt">+</span> <span class="hl std">n</span> <span class="hl com"># v_n</span>
+<span class="hl std">posterior.sigman_2</span> <span class="hl kwb">&lt;-</span> <span class="hl std">(</span><span class="hl kwd">t</span><span class="hl std">(Y)</span> <span class="hl opt">%*%</span> <span class="hl std">Y</span> <span class="hl opt">+</span> <span class="hl kwd">t</span><span class="hl std">(prior.mu0)</span> <span class="hl opt">%*%</span> <span class="hl std">prior.Ω0</span> <span class="hl opt">%*%</span> <span class="hl std">prior.mu0</span> <span class="hl opt">-</span> <span class="hl kwd">t</span><span class="hl std">(posterior.mun)</span> <span class="hl opt">%*%</span> <span class="hl std">posterior.Ωn</span> <span class="hl opt">%*%</span> <span class="hl std">posterior.mun)</span><span class="hl opt">/</span><span class="hl std">posterior.vn</span>
+
+<span class="hl std">nDraws</span> <span class="hl kwb">&lt;-</span> <span class="hl num">10000</span>
+<span class="hl std">beta_post_draws</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwc">nrow</span> <span class="hl std">= nDraws,</span>
+                          <span class="hl kwc">ncol</span> <span class="hl std">=</span> <span class="hl num">3</span><span class="hl std">)</span>
+<span class="hl std">posterior_y</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwc">nrow</span> <span class="hl std">= nDraws,</span>
+                      <span class="hl kwc">ncol</span> <span class="hl std">= n)</span>
+
+<span class="hl com"># Draws of sigma2 and beta posteriors</span>
+<span class="hl kwa">for</span> <span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nDraws) {</span>
+  <span class="hl std">sigma2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.vector</span><span class="hl std">(</span><span class="hl kwd">scal_inv_schsq</span><span class="hl std">(posterior.vn, posterior.sigman_2,</span> <span class="hl num">1</span><span class="hl std">))</span>
+  <span class="hl std">beta_post_draws[i,]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rmvnorm</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span>
+                             <span class="hl kwc">mean</span> <span class="hl std">= posterior.mun,</span>
+                             <span class="hl kwc">sigma</span> <span class="hl std">= sigma2</span><span class="hl opt">*</span><span class="hl std">posterior.inv_Ωn)</span>
+<span class="hl std">}</span>
+
+<span class="hl com"># Generates a large matrix (10000 x 366), For each time/column (366) -&gt; 10000 predicted temps/rows, one for each beta-draw</span>
+<span class="hl std">temp_pred_each_time</span> <span class="hl kwb">&lt;-</span>  <span class="hl kwd">t</span><span class="hl std">(X</span> <span class="hl opt">%*%</span> <span class="hl kwd">t</span><span class="hl std">(beta_post_draws))</span>
+<span class="hl std">temp_pred_each_time_sorted</span> <span class="hl kwb">=</span> <span class="hl kwd">apply</span><span class="hl std">(</span><span class="hl kwc">X</span> <span class="hl std">= temp_pred_each_time,</span>
+                                   <span class="hl kwc">MARGIN</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span>
+                                   <span class="hl std">sort)</span> <span class="hl com"># Sort each time/row</span>
+
+<span class="hl com"># Extract lower and upper</span>
+<span class="hl std">temp_pred_CI90</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rbind</span><span class="hl std">(temp_pred_each_time_sorted[</span><span class="hl kwd">round</span><span class="hl std">(nDraws</span><span class="hl opt">*</span><span class="hl std">CI_lower),],</span>
+                        <span class="hl std">temp_pred_each_time_sorted[</span><span class="hl kwd">round</span><span class="hl std">(nDraws</span><span class="hl opt">*</span><span class="hl std">CI_upper),])</span>
+
+<span class="hl com"># Plot data and mean regression line</span>
+<span class="hl kwd">plot</span><span class="hl std">(dataset)</span>
+<span class="hl kwd">lines</span><span class="hl std">(dataset</span><span class="hl opt">$</span><span class="hl std">time,</span> <span class="hl kwd">mean</span><span class="hl std">(beta_post_draws[,</span><span class="hl num">1</span><span class="hl std">])</span> <span class="hl opt">+</span> <span class="hl kwd">mean</span><span class="hl std">(beta_post_draws[,</span><span class="hl num">2</span><span class="hl std">])</span> <span class="hl opt">*</span> <span class="hl std">dataset</span><span class="hl opt">$</span><span class="hl std">time</span> <span class="hl opt">+</span> <span class="hl kwd">mean</span><span class="hl std">(beta_post_draws[,</span><span class="hl num">3</span><span class="hl std">])</span> <span class="hl opt">*</span> <span class="hl std">dataset</span><span class="hl opt">$</span><span class="hl std">time</span><span class="hl opt">^</span><span class="hl num">2</span><span class="hl std">,</span>
+          <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span>
+<span class="hl kwd">lines</span><span class="hl std">(dataset</span><span class="hl opt">$</span><span class="hl std">time, temp_pred_CI90[</span><span class="hl num">1</span><span class="hl std">,],</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span>
+<span class="hl kwd">lines</span><span class="hl std">(dataset</span><span class="hl opt">$</span><span class="hl std">time, temp_pred_CI90[</span><span class="hl num">2</span><span class="hl std">,],</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span>
+
+<span class="hl com"># d)</span>
+<span class="hl com"># Time with highest expected temperature: time = -B1/2B2</span>
+<span class="hl com"># Calculated from the derivation of f(time) set to 0. </span>
+
+<span class="hl std">posterior_max_time</span> <span class="hl kwb">&lt;-</span> <span class="hl opt">-</span><span class="hl std">beta_post_draws[,</span><span class="hl num">2</span><span class="hl std">]</span><span class="hl opt">/</span><span class="hl std">(</span><span class="hl num">2</span><span class="hl opt">*</span><span class="hl std">beta_post_draws[,</span><span class="hl num">3</span><span class="hl std">])</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">=</span> <span class="hl kwd">mean</span><span class="hl std">(posterior_max_time),</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span>
+
+<span class="hl com"># e)</span>
+<span class="hl com"># To mitigate the risk of overfitting due to higher order polynomials we want to have a small</span>
+<span class="hl com"># mu_n for larger betas. This will lead to a smaller coefficient for the higher polynomials,</span>
+<span class="hl com"># thus making them affect the end result less.</span>
+<span class="hl com"># 1) Set my_0 corresponding to higher polynomials low</span>
+<span class="hl com"># 2) Set the diagonal indices of Ometa_0 corresponding higher polynomial high</span>
+
+<span class="hl com">############# Task 2 #############</span>
+<span class="hl com"># Posterior approximation for classification with logistic regression</span>
+<span class="hl com"># Dataset:</span>
+<span class="hl com"># Response variable: Work</span>
+<span class="hl com"># Covariates: Constant  HustbandInc EducYear  ExpYear   ExpYear2  Age   NSmallChild   NBigChild</span>
+
+<span class="hl std">dataset</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">read.table</span><span class="hl std">(</span><span class="hl str">&quot;WomenWork.dat&quot;</span><span class="hl std">,</span> <span class="hl kwc">header</span><span class="hl std">=</span><span class="hl num">TRUE</span><span class="hl std">)</span>
+
+<span class="hl com"># a)</span>
+
+<span class="hl std">logRegFit</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">glm</span><span class="hl std">(</span><span class="hl kwc">formula</span> <span class="hl std">= Work</span> <span class="hl opt">~</span><span class="hl std">.</span><span class="hl opt">-</span><span class="hl std">Constant,</span> <span class="hl kwc">data</span> <span class="hl std">= dataset,</span> <span class="hl kwc">family</span> <span class="hl std">=</span> <span class="hl str">&quot;binomial&quot;</span><span class="hl std">)</span>
+
+<span class="hl com"># b)</span>
+<span class="hl com"># Approx posterior distribution of 8-dim parameter vector β</span>
+<span class="hl com"># Posterior: β | y, X ~ N(Beta_mode, Inv_Hessian_At_Beta_bode)</span>
+<span class="hl com"># Likelihood: y | β, X = exp(x_i*β)^(y_i)/[ 1+exp(x_i*β) ]</span>
+<span class="hl com"># Prior: β ~ N(0, τ_2*I), τ = 10</span>
+
+<span class="hl com"># Functions</span>
+<span class="hl com"># !!!!! Important to remember !!!!!</span>
+<span class="hl com">## 1) Always use log posterior as it's more stable and avoids problems with to small or large numbers</span>
+<span class="hl com">## 2) Don't forget that in log -&gt; posterior = log.likelihood + log.prior</span>
+<span class="hl com">## 3) Don't forget to handle Infinity</span>
+<span class="hl std">postLogReg</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">β</span><span class="hl std">,</span> <span class="hl kwc">mu_0</span><span class="hl std">,</span> <span class="hl kwc">X</span><span class="hl std">,</span> <span class="hl kwc">Y</span><span class="hl std">,</span> <span class="hl kwc">tau</span><span class="hl std">) {</span>
+  <span class="hl std">no_of_betas</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">length</span><span class="hl std">(β)</span> <span class="hl com"># Number of covariates</span>
+  <span class="hl std">sigma</span> <span class="hl kwb">&lt;-</span> <span class="hl std">tau</span><span class="hl opt">^</span><span class="hl num">2</span> <span class="hl opt">*</span> <span class="hl kwd">diag</span><span class="hl std">(no_of_betas)</span> <span class="hl com"># Calculate sigma tau^2 * I</span>
+
+  <span class="hl com"># Likelihood</span>
+  <span class="hl com"># Logarithm of prod[ exp(x*β)^Y / (1 + exp(x*β))]</span>
+  <span class="hl std">log.likelihood</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sum</span><span class="hl std">(</span><span class="hl kwd">t</span><span class="hl std">(Y)</span> <span class="hl opt">%*%</span> <span class="hl std">X</span> <span class="hl opt">%*%</span> <span class="hl std">β)</span> <span class="hl opt">-</span> <span class="hl kwd">log</span><span class="hl std">(</span><span class="hl kwd">prod</span><span class="hl std">(</span><span class="hl num">1</span> <span class="hl opt">+</span> <span class="hl kwd">exp</span><span class="hl std">(X</span> <span class="hl opt">%*%</span> <span class="hl std">β)))</span>
+
+  <span class="hl kwa">if</span> <span class="hl std">(</span><span class="hl kwd">abs</span><span class="hl std">(log.likelihood)</span> <span class="hl opt">==</span> <span class="hl num">Inf</span><span class="hl std">) log.likelihood</span> <span class="hl kwb">=</span> <span class="hl opt">-</span><span class="hl num">20000</span><span class="hl std">;</span>
+
+  <span class="hl com"># Prior</span>
+  <span class="hl std">log.prior</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dmvnorm</span><span class="hl std">(β,</span> <span class="hl kwc">mean</span> <span class="hl std">= mu_0,</span> <span class="hl kwc">sigma</span> <span class="hl std">= sigma,</span> <span class="hl kwc">log</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+
+  <span class="hl kwd">return</span> <span class="hl std">(log.likelihood</span> <span class="hl opt">+</span> <span class="hl std">log.prior)</span>
+<span class="hl std">}</span>
+
+<span class="hl com"># Setup</span>
+<span class="hl std">n_parameters</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dim</span><span class="hl std">(dataset[,</span><span class="hl opt">-</span><span class="hl num">1</span><span class="hl std">])[</span><span class="hl num">2</span><span class="hl std">]</span> <span class="hl com"># No. of covariates</span>
+<span class="hl std">X</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.matrix</span><span class="hl std">(dataset[,</span> <span class="hl opt">-</span><span class="hl num">1</span><span class="hl std">])</span>
+<span class="hl std">Y</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.matrix</span><span class="hl std">(dataset[,</span> <span class="hl num">1</span><span class="hl std">])</span>
+<span class="hl std">nDraws</span> <span class="hl kwb">=</span> <span class="hl num">10000</span>
+<span class="hl std">CI_interval</span> <span class="hl kwb">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0.025</span><span class="hl std">,</span> <span class="hl num">0.975</span><span class="hl std">)</span>
+
+<span class="hl com"># Prior</span>
+<span class="hl std">β0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.matrix</span><span class="hl std">(</span><span class="hl kwd">rep</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">, n_parameters))</span> <span class="hl com"># Initial beta-values</span>
+<span class="hl std">beta.prior.mu_0</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rep</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">, n_parameters)</span> <span class="hl com"># Mu_0</span>
+<span class="hl std">beta.prior.tau</span> <span class="hl kwb">&lt;-</span> <span class="hl num">10</span> <span class="hl com"># Tau: Given in the task</span>
+
+<span class="hl com"># Optim</span>
+<span class="hl com"># par: Initial values for parameter to me optimized</span>
+<span class="hl com"># fn: Function to be minimized/maximized</span>
+<span class="hl com"># Variables: Pass all variables except the one being maximized</span>
+<span class="hl std">optim.res</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">optim</span><span class="hl std">(</span><span class="hl kwc">par</span> <span class="hl std">= β0,</span>
+                   <span class="hl kwc">fn</span> <span class="hl std">= postLogReg,</span>
+                   <span class="hl kwc">gr</span> <span class="hl std">=</span> <span class="hl kwa">NULL</span><span class="hl std">,</span>
+                   <span class="hl kwc">mu_0</span> <span class="hl std">= beta.prior.mu_0,</span>
+                   <span class="hl kwc">X</span> <span class="hl std">= X,</span>
+                   <span class="hl kwc">Y</span> <span class="hl std">= Y,</span>
+                   <span class="hl kwc">tau</span> <span class="hl std">= beta.prior.tau,</span>
+                   <span class="hl kwc">method</span> <span class="hl std">=</span> <span class="hl str">&quot;BFGS&quot;</span><span class="hl std">,</span>
+                   <span class="hl kwc">control</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">fnscale</span><span class="hl std">=</span><span class="hl opt">-</span><span class="hl num">1</span><span class="hl std">),</span>
+                   <span class="hl kwc">hessian</span> <span class="hl std">=</span> <span class="hl num">TRUE</span>
+                   <span class="hl std">)</span>
+
+<span class="hl std">β.mode</span> <span class="hl kwb">&lt;-</span> <span class="hl std">optim.res</span><span class="hl opt">$</span><span class="hl std">par</span> <span class="hl com"># Mode of beta</span>
+<span class="hl std">β.hessian.neg.inv</span> <span class="hl kwb">&lt;-</span> <span class="hl opt">-</span><span class="hl kwd">solve</span><span class="hl std">(optim.res</span><span class="hl opt">$</span><span class="hl std">hessian)</span> <span class="hl com"># Negative inverse hessian of beta</span>
+
+<span class="hl com"># Beta draws</span>
+<span class="hl std">β.draws</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwc">nrow</span> <span class="hl std">= nDraws,</span>
+                  <span class="hl kwc">ncol</span> <span class="hl std">= n_parameters)</span>
+
+<span class="hl kwa">for</span> <span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nDraws) {</span>
+  <span class="hl std">β.draws[i, ]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">mvrnorm</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">mu</span> <span class="hl std">= β.mode,</span> <span class="hl kwc">Sigma</span> <span class="hl std">= β.hessian.inv)</span>
+<span class="hl std">}</span>
+</pre></div>
+<div class="error"><pre class="knitr r">## Error in mvrnorm(n = 1, mu = β.mode, Sigma = β.hessian.inv): could not find function &quot;mvrnorm&quot;
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># Calculate Credible Interval of NSmallChild</span>
+<span class="hl std">NSmallChild.draws</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sort</span><span class="hl std">(β.draws[,</span> <span class="hl num">7</span><span class="hl std">])</span> <span class="hl com"># Sort all draws in ascending order</span>
+<span class="hl std">NSmallChild.CI</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(NSmallChild.draws[</span><span class="hl kwd">round</span><span class="hl std">(nDraws</span><span class="hl opt">*</span><span class="hl std">CI_interval[</span><span class="hl num">1</span><span class="hl std">])],</span>
+                    <span class="hl std">NSmallChild.draws[</span><span class="hl kwd">round</span><span class="hl std">(nDraws</span><span class="hl opt">*</span><span class="hl std">CI_interval[</span><span class="hl num">2</span><span class="hl std">])])</span> <span class="hl com"># Extract Credible intervals</span>
+
+<span class="hl com"># Hist of draws of NSmallChild</span>
+<span class="hl std">breaks</span> <span class="hl kwb">&lt;-</span> <span class="hl num">200</span>
+<span class="hl std">h</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">hist</span><span class="hl std">(β.draws[,</span><span class="hl num">7</span><span class="hl std">],</span> <span class="hl kwc">breaks</span> <span class="hl std">= breaks,</span> <span class="hl kwc">plot</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">)</span>
+</pre></div>
+<div class="error"><pre class="knitr r">## Error in hist.default(β.draws[, 7], breaks = breaks, plot = FALSE): 'x' must be numeric
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">cut</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">cut</span><span class="hl std">(h</span><span class="hl opt">$</span><span class="hl std">breaks,</span> <span class="hl kwd">c</span><span class="hl std">(NSmallChild.CI[</span><span class="hl num">1</span><span class="hl std">], NSmallChild.CI[</span><span class="hl num">2</span><span class="hl std">]))</span>
+</pre></div>
+<div class="error"><pre class="knitr r">## Error in cut(h$breaks, c(NSmallChild.CI[1], NSmallChild.CI[2])): object 'h' not found
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">plot</span><span class="hl std">(h,</span>
+     <span class="hl kwc">col</span> <span class="hl std">= cut,</span>
+     <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;Draws of NSmallChild&quot;</span><span class="hl std">,</span>
+     <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Value&quot;</span><span class="hl std">)</span>
+</pre></div>
+<div class="error"><pre class="knitr r">## Error in plot(h, col = cut, main = &quot;Draws of NSmallChild&quot;, xlab = &quot;Value&quot;): object 'h' not found
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">= NSmallChild.CI[</span><span class="hl num">1</span><span class="hl std">],</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">= NSmallChild.CI[</span><span class="hl num">2</span><span class="hl std">],</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl kwd">rgb</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">))</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab2-Rhtmlauto-report-2.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># c)</span>
+
+<span class="hl com"># Functions</span>
+<span class="hl std">sigmoid</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">x</span><span class="hl std">) {</span>
+  <span class="hl kwd">return</span> <span class="hl std">(</span><span class="hl kwd">exp</span><span class="hl std">(x)</span> <span class="hl opt">/</span> <span class="hl std">(</span><span class="hl num">1</span> <span class="hl opt">+</span> <span class="hl kwd">exp</span><span class="hl std">(x)))</span>
+<span class="hl std">}</span>
+
+<span class="hl std">drawPredDist</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">βmode</span><span class="hl std">,</span> <span class="hl kwc">negInvHess</span><span class="hl std">,</span> <span class="hl kwc">y</span><span class="hl std">,</span> <span class="hl kwc">nDraws</span><span class="hl std">) {</span>
+  <span class="hl std">beta_draws</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rmvnorm</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">= nDraws,</span>
+                        <span class="hl kwc">mean</span> <span class="hl std">= βmode,</span>
+                        <span class="hl kwc">sigma</span> <span class="hl std">= negInvHess)</span> <span class="hl com"># Draw from posterior beta distribution</span>
+
+  <span class="hl kwd">return</span> <span class="hl std">(</span><span class="hl kwd">sigmoid</span><span class="hl std">(beta_draws</span> <span class="hl opt">%*%</span> <span class="hl std">y))</span>
+<span class="hl std">}</span>
+
+<span class="hl com"># Setup</span>
+<span class="hl std">target</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">10</span><span class="hl std">,</span> <span class="hl num">8</span><span class="hl std">,</span> <span class="hl num">10</span><span class="hl std">, (</span><span class="hl num">10</span><span class="hl opt">/</span><span class="hl num">10</span><span class="hl std">)</span><span class="hl opt">^</span><span class="hl num">2</span><span class="hl std">,</span> <span class="hl num">40</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">)</span> <span class="hl com"># Target woman covariates</span>
+<span class="hl std">pred</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">numeric</span><span class="hl std">()</span> <span class="hl com"># Vector to collect results</span>
+<span class="hl std">nDraws</span> <span class="hl kwb">&lt;-</span> <span class="hl num">10000</span> <span class="hl com"># No. of draws</span>
+
+<span class="hl com"># Distribution of logistic regression of target</span>
+<span class="hl std">pred_work</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">drawPredDist</span><span class="hl std">(</span><span class="hl kwc">βmode</span> <span class="hl std">= β.mode,</span>
+                      <span class="hl kwc">negInvHess</span> <span class="hl std">= β.hessian.neg.inv,</span>
+                      <span class="hl kwc">y</span> <span class="hl std">= target,</span>
+                      <span class="hl kwc">nDraws</span> <span class="hl std">= nDraws)</span>
+
+<span class="hl com"># Histogram of logistic regression</span>
+<span class="hl kwd">hist</span><span class="hl std">(pred_work,</span> <span class="hl kwc">breaks</span><span class="hl std">=</span><span class="hl num">100</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab2-Rhtmlauto-report-3.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># ~99.5% of the values are below 0.5.</span>
+<span class="hl com"># The data is indicating that the target woman doesn't work.</span>
+<span class="hl std">percent_below_05</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sum</span><span class="hl std">(</span><span class="hl kwd">ifelse</span><span class="hl std">(pred_work</span> <span class="hl opt">&lt;</span> <span class="hl num">0.5</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">))</span><span class="hl opt">/</span><span class="hl kwd">length</span><span class="hl std">(pred_work)</span>
+</pre></div>
+</div></div>
+
+  <p>The R session information (including the OS info, R version and all
+    packages used):</p>
+
+<div class="chunk" id="session-info"><div class="rcode"><div class="source"><pre class="knitr r">    <span class="hl kwd">sessionInfo</span><span class="hl std">()</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## R version 3.4.2 (2017-09-28)
+## Platform: x86_64-apple-darwin15.6.0 (64-bit)
+## Running under: OS X El Capitan 10.11.6
+## 
+## Matrix products: default
+## BLAS: /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib
+## LAPACK: /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib
+## 
+## locale:
+## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] knitr_1.18         mvtnorm_1.0-7      rstan_2.17.3       StanHeaders_2.17.2
+## [5] ggplot2_2.2.1     
+## 
+## loaded via a namespace (and not attached):
+##  [1] Rcpp_0.12.13     codetools_0.2-15 grid_3.4.2       plyr_1.8.4       gtable_0.2.0    
+##  [6] magrittr_1.5     stats4_3.4.2     evaluate_0.10.1  scales_0.5.0     highr_0.6       
+## [11] stringi_1.1.5    rlang_0.1.4      lazyeval_0.2.1   tools_3.4.2      stringr_1.2.0   
+## [16] munsell_0.4.3    yaml_2.1.16      compiler_3.4.2   inline_0.3.14    colorspace_1.3-2
+## [21] gridExtra_2.3    tibble_1.3.4
+</pre></div>
+<div class="source"><pre class="knitr r">    <span class="hl kwd">Sys.time</span><span class="hl std">()</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] &quot;2018-05-28 16:28:41 CEST&quot;
+</pre></div>
+</div></div>
+
+
+</body>
+</html>

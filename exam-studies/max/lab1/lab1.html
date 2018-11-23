@@ -1,0 +1,401 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style type="text/css">
+.knitr .inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.rimage .left {
+  text-align: left;
+}
+.rimage .right {
+  text-align: right;
+}
+.rimage .center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+  <script src="https://yihui.name/media/js/center-images.js"></script>
+  <title>\title{}</title>
+</head>
+<body>
+
+  <p>This report is automatically generated with the R
+    package <a href="https://yihui.name/knitr/"><strong>knitr</strong></a>
+    (version <code class="knitr inline">1.18</code>)
+    .</p>
+
+<div class="chunk" id="auto-report"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">########################## Lab1 ##########################</span>
+<span class="hl com">### Meta-info</span>
+<span class="hl com">## Beta distribution</span>
+<span class="hl com">## Simulations</span>
+<span class="hl com">## Gini coefficient</span>
+<span class="hl com">## Credible interval</span>
+<span class="hl com">## Highest Posterior Density HPD</span>
+
+<span class="hl com"># Task 1: Bernoulli ... again</span>
+<span class="hl com"># a) Draw random numbers from Beta distribution and graphical verification</span>
+<span class="hl com"># of posterior</span>
+<span class="hl com"># b) Simulate to compute posterior prob of Pr(theta &lt; 0.4)</span>
+<span class="hl com"># c) Compute log-oods posterior distribution</span>
+
+<span class="hl com"># Task 2: Log-normal distribution and the Gini coefficient</span>
+<span class="hl com"># a) Simulate 1000 draws from posterior or theta2. Compare with real value</span>
+<span class="hl com"># b) Compute posterior distribution of Gini coefficient G</span>
+<span class="hl com"># c) Compute 95% equal tail credible interval of Gini coefficient G.</span>
+<span class="hl com"># Doing a kernal density estimate</span>
+<span class="hl com"># Compute 95% Highest Posterior Density interval (HPD) of G</span>
+
+<span class="hl com"># Task 3: Bayesian inference for the concentration parameter in the von Mises distributio</span>
+<span class="hl com"># a) Plot posterior distribution of kappa for wind direction data</span>
+<span class="hl com"># b) Find approximate posterior mode of kappa</span>
+
+<span class="hl com">############# Task 1 #############</span>
+<span class="hl com"># Bernoulli ... again</span>
+<span class="hl com">#a)</span>
+<span class="hl com"># Instrucitons</span>
+<span class="hl com"># Likelihood: y_1, ..., y_n | θ ~ Bern(θ)</span>
+<span class="hl com"># Prior: θ ~ Beta(alpha_0, beta_0), alpha_0 = beta_0 = 2</span>
+<span class="hl com"># Posterior: θ|y_1, ..., y_n ~ Beta(alpha_0 + s, beta_0 + f)</span>
+<span class="hl com"># s = 14</span>
+<span class="hl com"># n = 20</span>
+<span class="hl com"># f = 6</span>
+
+<span class="hl com"># Setup</span>
+<span class="hl std">n</span> <span class="hl kwb">=</span> <span class="hl num">20</span>
+<span class="hl std">s</span> <span class="hl kwb">=</span> <span class="hl num">14</span>
+<span class="hl std">f</span> <span class="hl kwb">=</span> <span class="hl std">n</span> <span class="hl opt">-</span> <span class="hl std">s</span>
+<span class="hl std">nDraws</span> <span class="hl kwb">=</span> <span class="hl num">50000</span>
+<span class="hl std">drawsInterval</span> <span class="hl kwb">=</span> <span class="hl num">10</span>
+<span class="hl std">intervalVec</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">seq</span><span class="hl std">(</span><span class="hl num">10</span><span class="hl std">, nDraws, drawsInterval)</span>
+
+<span class="hl com"># Prior</span>
+<span class="hl std">prior.alpha</span> <span class="hl kwb">=</span> <span class="hl num">2</span>
+<span class="hl std">prior.beta</span> <span class="hl kwb">=</span> <span class="hl num">2</span>
+
+<span class="hl com"># Posterior</span>
+<span class="hl std">posterior.alpha</span> <span class="hl kwb">&lt;-</span> <span class="hl std">prior.alpha</span> <span class="hl opt">+</span> <span class="hl std">s</span>
+<span class="hl std">posterior.beta</span> <span class="hl kwb">&lt;-</span> <span class="hl std">prior.beta</span> <span class="hl opt">+</span> <span class="hl std">f</span>
+<span class="hl std">posterior.draws_means</span> <span class="hl kwb">=</span> <span class="hl kwd">numeric</span><span class="hl std">()</span>
+<span class="hl std">posterior.draws_sd</span> <span class="hl kwb">=</span> <span class="hl kwd">numeric</span><span class="hl std">()</span>
+
+<span class="hl com"># For-loop - (10, 20, 30, ..., 49980, 49990)</span>
+<span class="hl kwa">for</span> <span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl std">intervalVec) {</span>
+  <span class="hl std">posterior.draws</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rbeta</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">= i,</span>
+                           <span class="hl kwc">shape1</span> <span class="hl std">= posterior.alpha,</span>
+                           <span class="hl kwc">shape2</span> <span class="hl std">= posterior.beta)</span> <span class="hl com"># Draw from beta</span>
+
+  <span class="hl std">posterior.draws_means</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(posterior.draws_means,</span> <span class="hl kwd">mean</span><span class="hl std">(posterior.draws))</span> <span class="hl com"># Add mean to vector of means</span>
+  <span class="hl std">posterior.draws_sd</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(posterior.draws_sd,</span> <span class="hl kwd">sd</span><span class="hl std">(posterior.draws))</span> <span class="hl com"># Add sd to vector of sd</span>
+<span class="hl std">}</span>
+
+<span class="hl com"># True values</span>
+<span class="hl std">posterior.true_mean</span> <span class="hl kwb">&lt;-</span> <span class="hl std">posterior.alpha</span><span class="hl opt">/</span><span class="hl std">(posterior.alpha</span> <span class="hl opt">+</span> <span class="hl std">posterior.beta)</span>
+<span class="hl std">posterior.true_sd</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sqrt</span><span class="hl std">((posterior.alpha</span><span class="hl opt">*</span><span class="hl std">posterior.beta)</span><span class="hl opt">/</span><span class="hl std">((posterior.alpha</span> <span class="hl opt">+</span> <span class="hl std">posterior.beta)</span><span class="hl opt">^</span><span class="hl num">2</span> <span class="hl opt">*</span> <span class="hl std">(posterior.alpha</span> <span class="hl opt">+</span> <span class="hl std">posterior.beta</span> <span class="hl opt">+</span> <span class="hl num">1</span><span class="hl std">)))</span>
+
+<span class="hl com"># Plot</span>
+<span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">2</span><span class="hl std">))</span>
+<span class="hl kwd">plot</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">= intervalVec,</span>
+     <span class="hl kwc">y</span> <span class="hl std">= posterior.draws_means,</span>
+     <span class="hl kwc">type</span> <span class="hl std">=</span> <span class="hl str">'l'</span><span class="hl std">,</span>
+     <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'No. of draws'</span><span class="hl std">,</span>
+     <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">'Mean of data'</span><span class="hl std">)</span> <span class="hl com"># Plot means</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">h</span> <span class="hl std">= posterior.true_mean,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'red'</span><span class="hl std">)</span> <span class="hl com"># Add line of real mean to plot</span>
+
+<span class="hl kwd">plot</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">= intervalVec,</span>
+     <span class="hl kwc">y</span> <span class="hl std">= posterior.draws_sd,</span>
+     <span class="hl kwc">type</span> <span class="hl std">=</span> <span class="hl str">'l'</span><span class="hl std">,</span>
+     <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'No. of draws'</span><span class="hl std">,</span>
+     <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">'Sd of data'</span><span class="hl std">)</span> <span class="hl com"># Plot sd's</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">h</span> <span class="hl std">= posterior.true_sd,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'red'</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab1-Rhtmlauto-report-1.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># b) </span>
+<span class="hl com"># Setup</span>
+<span class="hl std">n</span> <span class="hl kwb">=</span> <span class="hl num">20</span>
+<span class="hl std">s</span> <span class="hl kwb">=</span> <span class="hl num">14</span>
+<span class="hl std">f</span> <span class="hl kwb">=</span> <span class="hl std">n</span> <span class="hl opt">-</span> <span class="hl std">s</span>
+<span class="hl std">nDraws</span> <span class="hl kwb">=</span> <span class="hl num">10000</span>
+
+<span class="hl com"># Prior</span>
+<span class="hl std">prior.alpha</span> <span class="hl kwb">=</span> <span class="hl num">2</span>
+<span class="hl std">prior.beta</span> <span class="hl kwb">=</span> <span class="hl num">2</span>
+
+<span class="hl com"># Posterior</span>
+<span class="hl std">posterior.alpha</span> <span class="hl kwb">&lt;-</span> <span class="hl std">prior.alpha</span> <span class="hl opt">+</span> <span class="hl std">s</span>
+<span class="hl std">posterior.beta</span> <span class="hl kwb">&lt;-</span> <span class="hl std">prior.beta</span> <span class="hl opt">+</span> <span class="hl std">f</span>
+<span class="hl std">posterior.draws_means</span> <span class="hl kwb">=</span> <span class="hl kwd">numeric</span><span class="hl std">()</span>
+<span class="hl std">posterior.draws_sd</span> <span class="hl kwb">=</span> <span class="hl kwd">numeric</span><span class="hl std">()</span>
+
+<span class="hl com"># Draws</span>
+<span class="hl std">posterior.draws_10000</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rbeta</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">= nDraws,</span>
+                               <span class="hl kwc">shape1</span> <span class="hl std">= posterior.alpha,</span>
+                               <span class="hl kwc">shape2</span> <span class="hl std">= posterior.beta)</span>
+
+<span class="hl com"># Calculate probability</span>
+<span class="hl std">posterior.prob_0.4</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">length</span><span class="hl std">(</span><span class="hl kwd">which</span><span class="hl std">(posterior.draws_10000</span> <span class="hl opt">&lt;</span> <span class="hl num">0.4</span><span class="hl std">))</span><span class="hl opt">/</span><span class="hl kwd">length</span><span class="hl std">(posterior.draws_10000)</span>
+<span class="hl std">posterior.prob_real</span><span class="hl kwb">&lt;-</span> <span class="hl kwd">pbeta</span><span class="hl std">(</span><span class="hl kwc">q</span> <span class="hl std">=</span> <span class="hl num">0.4</span><span class="hl std">,</span>
+                            <span class="hl kwc">shape1</span> <span class="hl std">= posterior.alpha,</span>
+                            <span class="hl kwc">shape2</span> <span class="hl std">= posterior.beta)</span>
+
+<span class="hl com"># c)</span>
+<span class="hl com"># Functions</span>
+<span class="hl std">logOdds</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">theta</span><span class="hl std">) {</span>
+  <span class="hl kwd">return</span> <span class="hl std">(</span><span class="hl kwd">log</span><span class="hl std">(theta</span><span class="hl opt">/</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">-</span><span class="hl std">theta)))</span>
+<span class="hl std">}</span>
+
+<span class="hl com"># Setup</span>
+<span class="hl std">n</span> <span class="hl kwb">=</span> <span class="hl num">20</span>
+<span class="hl std">s</span> <span class="hl kwb">=</span> <span class="hl num">14</span>
+<span class="hl std">f</span> <span class="hl kwb">=</span> <span class="hl std">n</span> <span class="hl opt">-</span> <span class="hl std">s</span>
+<span class="hl std">nDraws</span> <span class="hl kwb">=</span> <span class="hl num">10000</span>
+
+<span class="hl com"># Prior</span>
+<span class="hl std">prior.alpha</span> <span class="hl kwb">=</span> <span class="hl num">2</span>
+<span class="hl std">prior.beta</span> <span class="hl kwb">=</span> <span class="hl num">2</span>
+
+<span class="hl com"># Posterior</span>
+<span class="hl std">posterior.alpha</span> <span class="hl kwb">&lt;-</span> <span class="hl std">prior.alpha</span> <span class="hl opt">+</span> <span class="hl std">s</span>
+<span class="hl std">posterior.beta</span> <span class="hl kwb">&lt;-</span> <span class="hl std">prior.beta</span> <span class="hl opt">+</span> <span class="hl std">f</span>
+
+<span class="hl com"># Draws</span>
+<span class="hl std">posterior.draws_10000</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rbeta</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">= nDraws,</span>
+                               <span class="hl kwc">shape1</span> <span class="hl std">= posterior.alpha,</span>
+                               <span class="hl kwc">shape2</span> <span class="hl std">= posterior.beta)</span>
+
+<span class="hl com"># Log-odds the draws</span>
+<span class="hl std">logOdds.draws</span> <span class="hl kwb">&lt;-</span><span class="hl kwd">logOdds</span><span class="hl std">(posterior.draws_10000)</span>
+
+<span class="hl com"># Hist and plot the density function of the log-odds draws</span>
+<span class="hl kwd">hist</span><span class="hl std">(logOdds.draws,</span> <span class="hl kwc">probability</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">density</span><span class="hl std">(logOdds.draws),</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'red'</span><span class="hl std">)</span>
+
+<span class="hl com">############# Task 2 #############</span>
+<span class="hl com"># Log-normal distribution and the Gini coefficient</span>
+<span class="hl com"># Likelihood: y_1, ..., y_n | µ, σ2 ~ log[ N(µ, σ2) ], µ known, σ2 unknown</span>
+<span class="hl com"># Prior: p(σ2) ∝ 1/σ2</span>
+
+<span class="hl com"># Posterior of σ2: Inv-X(n, tao^2)</span>
+<span class="hl com"># Tao^2 - The sample variance. Calculated as following:</span>
+<span class="hl com"># sum[ (log(y_i) - µ)^2 ]/n</span>
+
+<span class="hl com"># If X ~ N(0, 1)</span>
+<span class="hl com"># Y = exp(X) ~ log[ N(0,1) ] (lognormal)</span>
+
+<span class="hl com"># Setup</span>
+<span class="hl std">y</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">14</span><span class="hl std">,</span> <span class="hl num">25</span><span class="hl std">,</span> <span class="hl num">45</span><span class="hl std">,</span> <span class="hl num">25</span><span class="hl std">,</span> <span class="hl num">30</span><span class="hl std">,</span> <span class="hl num">33</span><span class="hl std">,</span> <span class="hl num">19</span><span class="hl std">,</span> <span class="hl num">50</span><span class="hl std">,</span> <span class="hl num">34</span><span class="hl std">,</span> <span class="hl num">67</span><span class="hl std">)</span>
+<span class="hl std">nDraws</span> <span class="hl kwb">=</span> <span class="hl num">10000</span>
+<span class="hl std">mu</span> <span class="hl kwb">=</span> <span class="hl num">3.5</span>
+
+<span class="hl com"># a)</span>
+<span class="hl com"># Functions</span>
+<span class="hl std">scaled_rchisq</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">Y</span><span class="hl std">,</span> <span class="hl kwc">mu</span><span class="hl std">,</span> <span class="hl kwc">nDraws</span><span class="hl std">) {</span>
+  <span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">length</span><span class="hl std">(Y)</span> <span class="hl com"># Length of data</span>
+  <span class="hl std">Z</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rchisq</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">= nDraws,</span> <span class="hl kwc">df</span> <span class="hl std">= n)</span> <span class="hl com"># Draw from Chi-squared distribution</span>
+  <span class="hl std">tao2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sum</span><span class="hl std">((</span><span class="hl kwd">log</span><span class="hl std">(Y)</span> <span class="hl opt">-</span> <span class="hl std">mu)</span><span class="hl opt">^</span><span class="hl num">2</span><span class="hl std">)</span><span class="hl opt">/</span><span class="hl std">n</span> <span class="hl com"># Calculate tau2 (sample standard diviation)</span>
+
+  <span class="hl kwd">return</span> <span class="hl std">(n</span><span class="hl opt">*</span><span class="hl std">tao2</span><span class="hl opt">/</span><span class="hl std">Z)</span>
+<span class="hl std">}</span>
+
+<span class="hl std">σ2.draws</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">scaled_rchisq</span><span class="hl std">(y, mu, nDraws)</span> <span class="hl com"># Draw from Scaled inverse chi-squared distribution</span>
+<span class="hl kwd">hist</span><span class="hl std">(σ2.draws,</span> <span class="hl kwc">breaks</span><span class="hl std">=</span><span class="hl num">1000</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab1-Rhtmlauto-report-2.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># b)</span>
+<span class="hl com"># Gini-coefficient measuers inequality (0: equal, 1: unequal)</span>
+<span class="hl com"># Uses the Lorenz curve where:</span>
+<span class="hl com"># x-axis: Cumulative share of people from low to high income</span>
+<span class="hl com"># y-axis: Cumulative share of income earned</span>
+<span class="hl com">#</span>
+<span class="hl com"># If a straight line, it's 100% equal</span>
+<span class="hl com">#</span>
+<span class="hl com"># The Gini-coefficient is the ratio between the area between the straight line and the Lorenz curve</span>
+<span class="hl com"># divided by the total area</span>
+<span class="hl com">#</span>
+<span class="hl com"># If the data follows an lognormal distribution (e.g wealth), the Gini-coef is calculated as follows:</span>
+<span class="hl com"># G = 2 * Φ(σ/√2) - 1</span>
+
+<span class="hl std">σ</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sqrt</span><span class="hl std">(σ2.draws)</span> <span class="hl com"># Square σ2 to get σ</span>
+<span class="hl std">gini_coef</span> <span class="hl kwb">&lt;-</span> <span class="hl num">2</span> <span class="hl opt">*</span> <span class="hl kwd">pnorm</span><span class="hl std">(σ</span><span class="hl opt">/</span><span class="hl kwd">sqrt</span><span class="hl std">(</span><span class="hl num">2</span><span class="hl std">),</span> <span class="hl kwc">mean</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">sd</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">)</span> <span class="hl opt">-</span> <span class="hl num">1</span> <span class="hl com"># Calculate the Gini-coefficients for each σ</span>
+<span class="hl kwd">hist</span><span class="hl std">(gini_coef,</span> <span class="hl kwc">breaks</span><span class="hl std">=</span><span class="hl num">200</span><span class="hl std">,</span> <span class="hl kwc">probability</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span> <span class="hl com"># Hist Gini-coefficients</span>
+<span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">density</span><span class="hl std">(gini_coef),</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl str">'red'</span><span class="hl std">)</span> <span class="hl com"># Plot density curve</span>
+
+<span class="hl com"># c)</span>
+<span class="hl com"># Functions</span>
+<span class="hl std">eqtail_CI</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">..X</span><span class="hl std">,</span> <span class="hl kwc">interval</span><span class="hl std">) {</span>
+  <span class="hl std">lower</span> <span class="hl kwb">&lt;-</span> <span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">-</span><span class="hl std">interval)</span><span class="hl opt">/</span><span class="hl num">2</span>
+  <span class="hl std">upper</span> <span class="hl kwb">&lt;-</span> <span class="hl num">1</span> <span class="hl opt">-</span> <span class="hl std">lower</span>
+  <span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">length</span><span class="hl std">(..X)</span>
+  <span class="hl std">X</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sort</span><span class="hl std">(..X)</span> <span class="hl com"># Sort from smallest to largest value</span>
+
+  <span class="hl kwd">return</span> <span class="hl std">(</span><span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">lower</span><span class="hl std">=X[n</span><span class="hl opt">*</span><span class="hl std">lower],</span> <span class="hl kwc">upper</span><span class="hl std">=X[n</span><span class="hl opt">*</span><span class="hl std">upper]))</span>
+<span class="hl std">}</span>
+
+<span class="hl std">HPD</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">density</span><span class="hl std">,</span> <span class="hl kwc">interval</span><span class="hl std">) {</span>
+  <span class="hl std">gini_df</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">data.frame</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">= density</span><span class="hl opt">$</span><span class="hl std">x,</span> <span class="hl kwc">y</span> <span class="hl std">= density</span><span class="hl opt">$</span><span class="hl std">y)</span>
+  <span class="hl std">gini_df</span> <span class="hl kwb">&lt;-</span> <span class="hl std">gini_df[</span><span class="hl kwd">with</span><span class="hl std">(gini_df,</span> <span class="hl kwd">order</span><span class="hl std">(y)),]</span>
+  <span class="hl std">gini_df</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">data.frame</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">= gini_df</span><span class="hl opt">$</span><span class="hl std">x,</span> <span class="hl kwc">y</span> <span class="hl std">= gini_df</span><span class="hl opt">$</span><span class="hl std">y)</span>
+  <span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dim</span><span class="hl std">(gini_df)[</span><span class="hl num">1</span><span class="hl std">]</span>
+  <span class="hl std">lower</span> <span class="hl kwb">&lt;-</span> <span class="hl num">1</span> <span class="hl opt">-</span> <span class="hl std">interval</span>
+  <span class="hl kwd">print</span><span class="hl std">(lower)</span>
+  <span class="hl std">HPD_cumsum</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">cumsum</span><span class="hl std">(gini_df</span><span class="hl opt">$</span><span class="hl std">y)</span><span class="hl opt">/</span><span class="hl kwd">sum</span><span class="hl std">(gini_df</span><span class="hl opt">$</span><span class="hl std">y)</span>
+  <span class="hl std">HPD_lower</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">which</span><span class="hl std">(HPD_cumsum</span> <span class="hl opt">&gt;=</span> <span class="hl std">lower)[</span><span class="hl num">1</span><span class="hl std">]</span>
+  <span class="hl std">gini_df_95</span> <span class="hl kwb">&lt;-</span> <span class="hl std">gini_df[(HPD_lower</span> <span class="hl opt">+</span> <span class="hl num">1</span><span class="hl std">)</span><span class="hl opt">:</span><span class="hl std">n, ]</span>
+  <span class="hl std">HPD_interval</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl kwd">min</span><span class="hl std">(gini_df_95</span><span class="hl opt">$</span><span class="hl std">x),</span> <span class="hl kwd">max</span><span class="hl std">(gini_df_95</span><span class="hl opt">$</span><span class="hl std">x))</span>
+  <span class="hl kwd">return</span> <span class="hl std">(</span><span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">lower</span> <span class="hl std">= HPD_interval[</span><span class="hl num">1</span><span class="hl std">],</span> <span class="hl kwc">upper</span> <span class="hl std">= HPD_interval[</span><span class="hl num">2</span><span class="hl std">]))</span>
+<span class="hl std">}</span>
+
+<span class="hl com"># 95% equal tail credible interval</span>
+<span class="hl std">gini_coef_CI</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">eqtail_CI</span><span class="hl std">(gini_coef,</span> <span class="hl num">0.95</span><span class="hl std">)</span>
+
+<span class="hl kwd">hist</span><span class="hl std">(gini_coef,</span> <span class="hl kwc">breaks</span><span class="hl std">=</span><span class="hl num">200</span><span class="hl std">,</span> <span class="hl kwc">probability</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span> <span class="hl com"># Hist Gini-coefficients</span>
+<span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">density</span><span class="hl std">(gini_coef),</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl str">'red'</span><span class="hl std">)</span> <span class="hl com"># Plot density curve</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">= gini_coef_CI</span><span class="hl opt">$</span><span class="hl std">lower,</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl str">'blue'</span><span class="hl std">)</span> <span class="hl com"># Plot lower CI line</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">= gini_coef_CI</span><span class="hl opt">$</span><span class="hl std">upper,</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl str">'blue'</span><span class="hl std">)</span> <span class="hl com"># Plot upper CI line</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab1-Rhtmlauto-report-3.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># Highest Posterior Density Interval</span>
+<span class="hl std">gini_density</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">density</span><span class="hl std">(gini_coef)</span>
+<span class="hl std">HPD_interval</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">HPD</span><span class="hl std">(gini_density,</span> <span class="hl num">0.95</span><span class="hl std">)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] 0.05
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># Plot histogram of Gini coefficients, 95% credible interval (blue) and 95% HPD interval (green)</span>
+<span class="hl kwd">hist</span><span class="hl std">(gini_coef,</span> <span class="hl kwc">breaks</span><span class="hl std">=</span><span class="hl num">200</span><span class="hl std">,</span> <span class="hl kwc">probability</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span> <span class="hl com"># Hist Gini-coefficients</span>
+<span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">density</span><span class="hl std">(gini_coef),</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl str">'red'</span><span class="hl std">)</span> <span class="hl com"># Plot density curve</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">= gini_coef_CI</span><span class="hl opt">$</span><span class="hl std">lower,</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl str">'blue'</span><span class="hl std">)</span> <span class="hl com"># Plot lower CI line</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">= gini_coef_CI</span><span class="hl opt">$</span><span class="hl std">upper,</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl str">'blue'</span><span class="hl std">)</span> <span class="hl com"># Plot upper CI line</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">= HPD_interval</span><span class="hl opt">$</span><span class="hl std">lower,</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl str">'green'</span><span class="hl std">)</span> <span class="hl com"># Plot lower HPD interval</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">= HPD_interval</span><span class="hl opt">$</span><span class="hl std">upper,</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl str">'green'</span><span class="hl std">)</span> <span class="hl com"># Plot upper HPD interval</span>
+
+<span class="hl com">############# Task 3 #############</span>
+<span class="hl com"># von Mises distribution looks like a normal distribution with a spiky top and</span>
+<span class="hl com"># is a continues probability distribution on the circle, where theta is an angle.</span>
+<span class="hl com"># Kappa (κ): Concentration parameter. Large κ gives small variance around µ.</span>
+<span class="hl com"># Likelihood: p(y_1, ..., y_n | µ, κ) = exp[ κ * cos(y - µ) ]/(2πIo(κ))</span>
+<span class="hl com"># Prior: κ ~ Exp(λ = 1), mean = 1/λ</span>
+
+<span class="hl com"># Setup</span>
+<span class="hl com"># Wind-angles in degrees on 10 different days</span>
+<span class="hl com"># North is zero</span>
+<span class="hl com"># </span>
+<span class="hl std">y.degrees</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">40</span><span class="hl std">,</span> <span class="hl num">303</span><span class="hl std">,</span> <span class="hl num">326</span><span class="hl std">,</span> <span class="hl num">285</span><span class="hl std">,</span> <span class="hl num">296</span><span class="hl std">,</span> <span class="hl num">314</span><span class="hl std">,</span> <span class="hl num">20</span><span class="hl std">,</span> <span class="hl num">308</span><span class="hl std">,</span> <span class="hl num">299</span><span class="hl std">,</span> <span class="hl num">296</span><span class="hl std">)</span>
+<span class="hl std">y.radians</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl num">2.44</span><span class="hl std">,</span> <span class="hl num">2.14</span><span class="hl std">,</span> <span class="hl num">2.54</span><span class="hl std">,</span> <span class="hl num">1.83</span><span class="hl std">,</span> <span class="hl num">2.02</span><span class="hl std">,</span> <span class="hl num">2.33</span><span class="hl std">,</span> <span class="hl opt">-</span><span class="hl num">2.79</span><span class="hl std">,</span> <span class="hl num">2.23</span><span class="hl std">,</span> <span class="hl num">2.07</span><span class="hl std">,</span> <span class="hl num">2.02</span><span class="hl std">)</span>
+<span class="hl std">mu</span> <span class="hl kwb">&lt;-</span> <span class="hl num">2.39</span> <span class="hl com"># Mean directon</span>
+
+<span class="hl com"># a)</span>
+<span class="hl com"># Prior</span>
+<span class="hl std">kappa</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">data.frame</span><span class="hl std">(</span><span class="hl kwc">seq</span> <span class="hl std">=</span> <span class="hl kwd">seq</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">10</span><span class="hl std">,</span> <span class="hl num">0.01</span><span class="hl std">),</span>
+                    <span class="hl kwc">posterior</span> <span class="hl std">=</span> <span class="hl num">0</span>
+<span class="hl std">)</span>
+
+<span class="hl kwa">for</span> <span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl kwd">dim</span><span class="hl std">(kappa)[</span><span class="hl num">1</span><span class="hl std">]) {</span> <span class="hl com"># Loop over every kappa</span>
+  <span class="hl std">k</span> <span class="hl kwb">&lt;-</span> <span class="hl std">kappa</span><span class="hl opt">$</span><span class="hl std">seq[i]</span> <span class="hl com"># Extract current kappa</span>
+  <span class="hl std">prior</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">exp</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl std">k)</span> <span class="hl com"># Calculate prior with current kappa</span>
+  <span class="hl std">bessel</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">besselI</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">= k,</span>
+                    <span class="hl kwc">nu</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">)</span> <span class="hl com"># Bessel-function</span>
+  <span class="hl std">likelihood</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">prod</span><span class="hl std">(</span><span class="hl kwd">exp</span><span class="hl std">(k</span> <span class="hl opt">*</span> <span class="hl kwd">cos</span><span class="hl std">(y.radians</span> <span class="hl opt">-</span> <span class="hl std">mu))</span><span class="hl opt">/</span><span class="hl std">(</span><span class="hl num">2</span><span class="hl opt">*</span><span class="hl std">pi</span><span class="hl opt">*</span><span class="hl std">bessel))</span> <span class="hl com"># Calculate von Mises probability</span>
+  <span class="hl std">kappa</span><span class="hl opt">$</span><span class="hl std">posterior[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">likelihood</span> <span class="hl opt">*</span> <span class="hl std">prior</span> <span class="hl com"># Calculate posterior with current kappa</span>
+<span class="hl std">}</span>
+
+<span class="hl com"># Plot posterior for different kappas</span>
+<span class="hl kwd">plot</span><span class="hl std">(kappa</span><span class="hl opt">$</span><span class="hl std">seq, kappa</span><span class="hl opt">$</span><span class="hl std">posterior,</span> <span class="hl kwc">type</span><span class="hl std">=</span><span class="hl str">'l'</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab1-Rhtmlauto-report-4.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># b)</span>
+<span class="hl std">index</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">which.max</span><span class="hl std">(kappa</span><span class="hl opt">$</span><span class="hl std">posterior)</span> <span class="hl com"># Finds index with maximum posterior</span>
+<span class="hl std">kappa.mode</span> <span class="hl kwb">&lt;-</span> <span class="hl std">kappa</span><span class="hl opt">$</span><span class="hl std">seq[</span><span class="hl kwd">which.max</span><span class="hl std">(kappa</span><span class="hl opt">$</span><span class="hl std">posterior)]</span> <span class="hl com"># Extract kappa with maximum posterior</span>
+
+<span class="hl kwd">plot</span><span class="hl std">(kappa</span><span class="hl opt">$</span><span class="hl std">seq, kappa</span><span class="hl opt">$</span><span class="hl std">posterior,</span> <span class="hl kwc">type</span><span class="hl std">=</span><span class="hl str">'l'</span><span class="hl std">)</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">= kappa.mode,</span> <span class="hl kwc">col</span><span class="hl std">=</span><span class="hl str">'red'</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage center"><img src="figure/lab1-Rhtmlauto-report-5.png" title="plot of chunk auto-report" alt="plot of chunk auto-report" class="plot" /></div></div>
+
+  <p>The R session information (including the OS info, R version and all
+    packages used):</p>
+
+<div class="chunk" id="session-info"><div class="rcode"><div class="source"><pre class="knitr r">    <span class="hl kwd">sessionInfo</span><span class="hl std">()</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## R version 3.4.2 (2017-09-28)
+## Platform: x86_64-apple-darwin15.6.0 (64-bit)
+## Running under: OS X El Capitan 10.11.6
+## 
+## Matrix products: default
+## BLAS: /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib
+## LAPACK: /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib
+## 
+## locale:
+## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] knitr_1.18         mvtnorm_1.0-7      rstan_2.17.3       StanHeaders_2.17.2
+## [5] ggplot2_2.2.1     
+## 
+## loaded via a namespace (and not attached):
+##  [1] Rcpp_0.12.13     codetools_0.2-15 grid_3.4.2       plyr_1.8.4       gtable_0.2.0    
+##  [6] magrittr_1.5     stats4_3.4.2     evaluate_0.10.1  scales_0.5.0     highr_0.6       
+## [11] stringi_1.1.5    rlang_0.1.4      lazyeval_0.2.1   tools_3.4.2      stringr_1.2.0   
+## [16] munsell_0.4.3    yaml_2.1.16      compiler_3.4.2   inline_0.3.14    colorspace_1.3-2
+## [21] gridExtra_2.3    tibble_1.3.4
+</pre></div>
+<div class="source"><pre class="knitr r">    <span class="hl kwd">Sys.time</span><span class="hl std">()</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] &quot;2018-05-28 16:02:24 CEST&quot;
+</pre></div>
+</div></div>
+
+
+</body>
+</html>
