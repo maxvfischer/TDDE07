@@ -163,7 +163,7 @@ data {
 }
 parameters {
   real mu;
-  real phi;
+  real phi; 
   real<lower=0> sigma2;
   vector[N] x;
 }

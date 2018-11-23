@@ -179,7 +179,6 @@ for (k in 1:nIter){
            col = c("black",lineColors[1:nComp], 'red'), lwd = 2)
     #Sys.sleep(sleepTime)
   }
-  
 }
 
 hist(x, breaks = 20, freq = FALSE, xlim = c(xGridMin,xGridMax), main = "Final fitted density")

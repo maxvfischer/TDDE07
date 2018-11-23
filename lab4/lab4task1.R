@@ -10,8 +10,7 @@ logPostPoisson = function(β, mu0, Sigma0, X, y) {
   p = length(β)
   
   # log of the likelihood
-  #log.likelihood = sum(y * (X %*% β) - exp(X %*% β))
-  log.likelihood = sum(dpois(y, exp(X %*% β), log = TRUE))
+  log.likelihood = sum(y * X %*% β - exp(X %*% β))
   
   # if likelihood is very large or very small, stear optim away
   if (abs(log.likelihood) == Inf) log.likelihood = -20000;
@@ -75,7 +74,7 @@ Metropolis = function(nBurnIn, nSamples, theta, c, logPostFunc, ...) {
       nAccepted = nAccepted + 1
     }
     
-    # Save sample
+    # Save sample if not burnin
     if (i>0) theta.samples[i,] = theta.c
   }
   cat("Sampled", nSamples, "samples with an acceptance rate of", nAccepted/nSamples)
@@ -95,7 +94,7 @@ nBurnIn = 1000
 
 # Plot parameter differences for comparision
 plot(rep(0, 9), ylim = c(-0.015, 0.015), col="blue",
-     xlab="β", main="Parameter value differences of the different methods")
+     xlab="β", ylab="Parameter difference", main="Parameter value differences of the different methods")
 points(glm.fit$coefficients-β.mode, col="green")
 points(glm.fit$coefficients-β.post.mean, col="red")
 legend("bottomright", legend=c("glm", "posterior mode", "posterior mean MCMC"), lwd=2,
@@ -103,29 +102,29 @@ legend("bottomright", legend=c("glm", "posterior mode", "posterior mean MCMC"), 
 
 # Plot posterior distribution of all β
 plot(density(β.samples[,1]), main="Const", xlab=expression(beta[1]), ylab="Density")
-plot(density(β.samples[,2]), main="PowerSeller", xlab=expression(beta[2]))
-plot(density(β.samples[,3]), main="VerifyID", xlab=expression(beta[3]))
-plot(density(β.samples[,4]), main="Sealed", xlab=expression(beta[4]))
-plot(density(β.samples[,5]), main="MinBlem", xlab=expression(beta[5]))
-plot(density(β.samples[,6]), main="MajBlem", xlab=expression(beta[6]))
-plot(density(β.samples[,7]), main="LargNeg", xlab=expression(beta[7]))
-plot(density(β.samples[,8]), main="LogBook", xlab=expression(beta[8]))
-plot(density(β.samples[,9]), main="MinBidShare", xlab=expression(beta[9]))
+plot(density(β.samples[,2]), main="PowerSeller", xlab=expression(beta[2]), ylab="Density")
+plot(density(β.samples[,3]), main="VerifyID", xlab=expression(beta[3]), ylab="Density")
+plot(density(β.samples[,4]), main="Sealed", xlab=expression(beta[4]), ylab="Density")
+plot(density(β.samples[,5]), main="MinBlem", xlab=expression(beta[5]), ylab="Density")
+plot(density(β.samples[,6]), main="MajBlem", xlab=expression(beta[6]), ylab="Density")
+plot(density(β.samples[,7]), main="LargNeg", xlab=expression(beta[7]), ylab="Density")
+plot(density(β.samples[,8]), main="LogBook", xlab=expression(beta[8]), ylab="Density")
+plot(density(β.samples[,9]), main="MinBidShare", xlab=expression(beta[9]), ylab="Density")
 
 # Plot posterior distribution of all phi=exp(β)
 phis = exp(β.samples)
 plot(density(phis[,1]), main="Const", xlab=expression(phi[1]), ylab="Density")
-plot(density(phis[,2]), main="PowerSeller", xlab=expression(phi[2]))
-plot(density(phis[,3]), main="VerifyID", xlab=expression(phi[3]))
-plot(density(phis[,4]), main="Sealed", xlab=expression(phi[4]))
-plot(density(phis[,5]), main="MinBlem", xlab=expression(phi[5]))
-plot(density(phis[,6]), main="MajBlem", xlab=expression(phi[6]))
-plot(density(phis[,7]), main="LargNeg", xlab=expression(phi[7]))
-plot(density(phis[,8]), main="LogBook", xlab=expression(phi[8]))
-plot(density(phis[,9]), main="MinBidShare", xlab=expression(phi[9]))
+plot(density(phis[,2]), main="PowerSeller", xlab=expression(phi[2]), ylab="Density")
+plot(density(phis[,3]), main="VerifyID", xlab=expression(phi[3]), ylab="Density")
+plot(density(phis[,4]), main="Sealed", xlab=expression(phi[4]), ylab="Density")
+plot(density(phis[,5]), main="MinBlem", xlab=expression(phi[5]), ylab="Density")
+plot(density(phis[,6]), main="MajBlem", xlab=expression(phi[6]), ylab="Density")
+plot(density(phis[,7]), main="LargNeg", xlab=expression(phi[7]), ylab="Density")
+plot(density(phis[,8]), main="LogBook", xlab=expression(phi[8]), ylab="Density")
+plot(density(phis[,9]), main="MinBidShare", xlab=expression(phi[9]), ylab="Density")
 
 # d)
-# Action vector
+# Auction vector
 x = c(1, 1, 1, 1, 0, 0, 0, 1, 0.5)
 
 # Setup for sampling
